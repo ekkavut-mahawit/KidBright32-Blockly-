@@ -230,7 +230,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // =========================================================================
-// 🔌 5. ระบบเชื่อมต่อ USB & Bluetooth BLE (เสถียร ไม่หลุดง่าย)
+// 🔌 5. ระบบเชื่อมต่อ USB & BLE (แก้ไขจุดตาย REPL และ Header Error)
 // =========================================================================
 
 async function connectUSB() {
@@ -318,7 +318,8 @@ async function executeCode() {
         return;
     }
 
-    let header = "from machine import Pin, ADC, PWM\nimport time, display\n";
+    // 🎯 แก้ไขจุดตาย 1: ตัด 'import display' ออกเด็ดขาด (เพราะ display ถูกประกาศเป็น Object ไว้ใน main.py)
+    let header = "from machine import Pin, ADC, PWM, I2C\nimport time\n";
     let fullCode = header + rawCode;
 
     if (currentMode === 'sim') {
@@ -327,15 +328,29 @@ async function executeCode() {
         return;
     }
 
-    const replPayload = "\x03\x03\x01" + fullCode + "\x04";
-
+    // 🎯 แก้ไขจุดตาย 2: ลำดับขั้นตอนการส่ง USB แบบ Step-by-Step พร้อม Delay ให้ MicroPython สลับโหมดทัน
     if (serialPort && serialPort.writable) {
         try {
             const writer = serialPort.writable.getWriter();
             const encoder = new TextEncoder();
-            await writer.write(encoder.encode(replPayload));
+
+            // 1. ส่ง Control-C สองครั้งเพื่อยกเลิกลูปเก่าที่รันอยู่
+            await writer.write(encoder.encode("\x03\x03"));
+            await new Promise(r => setTimeout(r, 150)); 
+
+            // 2. ส่ง Control-A เพื่อเข้า Raw REPL Mode
+            await writer.write(encoder.encode("\x01"));
+            await new Promise(r => setTimeout(r, 150));
+
+            // 3. ส่งตัวเนื้อโค้ด Python
+            await writer.write(encoder.encode(fullCode));
+            await new Promise(r => setTimeout(r, 100));
+
+            // 4. ส่ง Control-D สั่งรันโค้ดทันที
+            await writer.write(encoder.encode("\x04"));
             writer.releaseLock();
-            alert("🚀 ส่งโค้ดผ่าน USB เรียบร้อย!");
+
+            alert("🚀 ส่งโค้ดและสั่งรันบนบอร์ดสำเร็จ!");
             return;
         } catch (err) {
             alert("❌ ส่งข้อมูลผ่าน USB ล้มเหลว: " + err.message);
@@ -345,6 +360,7 @@ async function executeCode() {
 
     if (bleCharacteristic) {
         try {
+            const replPayload = "\x03\x03\x01" + fullCode + "\x04";
             await sendBLEPayload(replPayload);
             alert("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายเรียบร้อย!");
             return;
