@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KidBright32 Block Coding - โรงเรียนมหาชนะชัยวิทยาคม</title>
     
+    <!-- 📌 ล็อกเวอร์ชัน Blockly 9.3.3 เพื่อเสถียรภาพ -->
     <script src="https://unpkg.com/blockly@9.3.3/blockly.min.js"></script>
     <script src="https://unpkg.com/blockly@9.3.3/blocks_compressed.js"></script>
     <script src="https://unpkg.com/blockly@9.3.3/python_compressed.js"></script>
@@ -45,19 +46,16 @@
         .btn-ble { background-color: #9333ea; color: white; }
         .btn-toggle { background-color: #f59e0b; color: white; }
         .btn-run { background-color: #28a745; color: white; }
+        .btn-run:hover { background-color: #218838; }
 
-        .main-container { display: flex; flex: 1; width: 100%; height: 0; min-height: 0; position: relative; }
+        .main-container { 
+            display: flex; flex: 1; width: 100%; height: 0; min-height: 0; position: relative; 
+        }
         .workspace-wrapper { display: flex; flex-direction: column; flex: 1; height: 100%; min-width: 0; }
         #blocklyDiv { flex: 1; width: 100%; touch-action: none; background-color: #ffffff; }
 
-        #simContainer {
-            display: none; width: 45%; height: 100%; border-left: 2px solid #ccc;
-            background: #1e1e1e; flex-direction: column;
-        }
-        #simFrame { width: 100%; height: 100%; border: none; }
-
         #codePanel {
-            height: 160px; background: #1e1e1e; border-top: 2px solid #ff6b00;
+            height: 180px; background: #1e1e1e; border-top: 2px solid #ff6b00;
             display: flex; flex-direction: column; padding: 8px 12px;
         }
         .code-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -71,17 +69,23 @@
             border-radius: 4px; padding: 8px; font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.85rem; resize: none; outline: none; white-space: pre;
         }
+        
+        #simContainer { 
+            width: 45%; height: 100%; border-left: 3px solid #cbd5e1; 
+            display: flex; flex-direction: column; background: #1e293b;
+        }
+        #simFrame { width: 100%; flex: 1; border: none; }
 
-        /* 💡 สไตล์ปุ่มดอท LED สว่างสีแดงเมื่อเลือก */
-        .led-on rect.blocklyFieldCheckboxBackground,
-        g.led-on rect {
-            fill: #ff2200 !important;
-            stroke: #990000 !important;
-            filter: drop-shadow(0px 0px 3px #ff3300);
+        @media (max-width: 768px) {
+            header { padding: 8px; }
+            .controls { width: 100%; justify-content: space-between; }
+            .btn { flex: 1; text-align: center; padding: 6px 4px; }
+            #codePanel { height: 130px; }
+            .main-container { flex-direction: column; }
+            #simContainer { width: 100%; height: 50%; border-left: none; border-top: 3px solid #cbd5e1; }
         }
-        .led-on path {
-            stroke: #ffffff !important;
-        }
+
+        .blocklyFieldCheckbox { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -116,11 +120,12 @@
             </div>
         </div>
 
-        <div id="simContainer">
-            <iframe id="simFrame" src="https://wokwi.com/projects/new/esp32"></iframe>
+        <div id="simContainer" style="display: none;">
+            <iframe id="simFrame" src="https://wokwi.com/projects/470813346312859649?embed=1"></iframe>
         </div>
     </div>
 
+    <!-- 📦 Toolbox บล็อกคำสั่งสำหรับ KidBright32 -->
     <xml id="toolbox" style="display: none">
         <category name="1. อุปกรณ์ในบอร์ด KidBright" colour="#ff6b00">
             <block type="kb_matrix_draw"></block>
@@ -179,6 +184,6 @@
         <category name="8. ฟังก์ชัน" colour="#995ba5" custom="PROCEDURE"></category>
     </xml>
 
-    <script src="app.js?v=10.0"></script>
+    <script src="app.js?v=3.1"></script>
 </body>
 </html>
