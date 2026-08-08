@@ -51,41 +51,49 @@
         .main-container { 
             display: flex; flex: 1; width: 100%; height: 0; min-height: 0; position: relative; 
         }
-        .workspace-wrapper { display: flex; flex-direction: column; flex: 1; height: 100%; min-width: 0; }
-        #blocklyDiv { flex: 1; width: 100%; touch-action: none; background-color: #ffffff; }
+        #blocklyDiv { flex: 1; height: 100%; touch-action: none; background-color: #ffffff; min-width: 0; }
 
-        #codePanel {
-            height: 180px; background: #1e1e1e; border-top: 2px solid #ff6b00;
-            display: flex; flex-direction: column; padding: 8px 12px;
+        /* Side Panel Styling */
+        .side-panel {
+            width: 380px; max-width: 45%; height: 100%; background: #1e1e1e;
+            border-left: 2px solid #cbd5e1; display: flex; flex-direction: column;
         }
-        .code-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .code-title { color: #ce9178; font-size: 0.85rem; font-weight: bold; font-family: monospace; }
+
+        .code-box-container {
+            flex: 1; display: flex; flex-direction: column; padding: 10px; background: #1e1e1e; min-height: 150px;
+        }
+        .panel-header {
+            display: flex; justify-content: space-between; align-items: center;
+            color: #ce9178; font-size: 0.85rem; font-weight: bold; font-family: monospace;
+            padding-bottom: 8px;
+        }
         .btn-copy {
-            background-color: #28a745; color: white; border: none; padding: 4px 10px;
-            border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer;
+            background-color: #0284c7; color: white; border: none; padding: 4px 10px;
+            border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer;
+            transition: background 0.2s;
         }
+        .btn-copy:hover { background-color: #0369a1; }
+
         #pythonCodeBox {
             flex: 1; width: 100%; background: #121212; color: #00ff66; border: 1px solid #333;
-            border-radius: 4px; padding: 8px; font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 0.85rem; resize: none; outline: none; white-space: pre;
+            border-radius: 4px; padding: 10px; font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85rem; resize: none; outline: none; white-space: pre; line-height: 1.4;
         }
         
         #simContainer { 
-            width: 45%; height: 100%; border-left: 3px solid #cbd5e1; 
-            display: flex; flex-direction: column; background: #1e293b;
+            height: 50%; border-top: 2px solid #cbd5e1; 
+            display: none; flex-direction: column; background: #1e293b;
         }
-        #simFrame { width: 100%; flex: 1; border: none; }
+        #simContainer iframe { width: 100%; flex: 1; border: none; }
 
         @media (max-width: 768px) {
             header { padding: 8px; }
             .controls { width: 100%; justify-content: space-between; }
             .btn { flex: 1; text-align: center; padding: 6px 4px; }
-            #codePanel { height: 130px; }
             .main-container { flex-direction: column; }
-            #simContainer { width: 100%; height: 50%; border-left: none; border-top: 3px solid #cbd5e1; }
+            .side-panel { width: 100%; max-width: 100%; height: 40%; border-left: none; border-top: 2px solid #cbd5e1; }
+            #simContainer { height: 100%; border-top: none; }
         }
-
-        .blocklyFieldCheckbox { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -108,47 +116,113 @@
         </div>
     </header>
 
+    <!-- Main Workspace Layout -->
     <div class="main-container">
-        <div class="workspace-wrapper">
-            <div id="blocklyDiv"></div>
-            <div id="codePanel">
-                <div class="code-header">
-                    <span class="code-title">🐍 Python Code Preview (KidBright / MicroPython):</span>
-                    <button id="btnCopyCode" class="btn-copy" onclick="copyPythonCode()">📋 คัดลอกโค้ด</button>
-                </div>
-                <textarea id="pythonCodeBox" readonly spellcheck="false" placeholder="# ลากบล็อกมาวางเพื่อสร้างโค้ด..."></textarea>
-            </div>
-        </div>
+        <!-- Blockly Canvas -->
+        <div id="blocklyDiv"></div>
 
-        <div id="simContainer" style="display: none;">
-            <iframe id="simFrame" src="https://wokwi.com/projects/470813346312859649?embed=1"></iframe>
+        <!-- Right Side Panel (Code Preview & Simulation) -->
+        <div class="side-panel">
+            <div class="code-box-container">
+                <div class="panel-header">
+                    <span>🐍 พรีวิวโค้ด MicroPython</span>
+                    <button class="btn-copy" onclick="copyPythonCode()">📋 คัดลอก</button>
+                </div>
+                <textarea id="pythonCodeBox" readonly placeholder="โค้ดจะสร้างขึ้นที่นี่อัตโนมัติ..."></textarea>
+            </div>
+
+            <!-- Wokwi Simulator -->
+            <div id="simContainer">
+                <div class="panel-header" style="padding: 6px 10px; background: #0f172a; color: #38bdf8;">
+                    <span>⚡ หน้าต่างจำลองการทำงาน (Wokwi)</span>
+                </div>
+                <iframe id="simFrame" src="https://wokwi.com/projects/new/esp32"></iframe>
+            </div>
         </div>
     </div>
 
-    <!-- 📦 Toolbox บล็อกคำสั่งสำหรับ KidBright32 -->
+    <!-- Blockly Toolbox Definition -->
     <xml id="toolbox" style="display: none">
-        <category name="1. อุปกรณ์ในบอร์ด KidBright" colour="#ff6b00">
-            <block type="kb_matrix_draw"></block>
+        <!-- Category: LED Matrix -->
+        <category name="📺 หน้าจอ LED" colour="#ff6b00">
             <block type="kb_matrix_text">
                 <value name="TEXT">
-                    <shadow type="text"><field name="TEXT">HELLO</field></shadow>
+                    <block type="text">
+                        <field name="TEXT">Hello KidBright</field>
+                    </block>
                 </value>
             </block>
+            <block type="kb_matrix_draw"></block>
+            <block type="kb_matrix_clear"></block>
+        </category>
+
+        <!-- Category: Sensors & Switches -->
+        <category name="🔘 สวิตช์ & เซนเซอร์" colour="#ff6b00">
             <block type="kb_read_button"></block>
             <block type="kb_read_light"></block>
+        </category>
+
+        <!-- Category: Buzzer & Accessories -->
+        <category name="🔊 เสียง & USB Out" colour="#ff6b00">
             <block type="kb_buzzer"></block>
+            <block type="kb_buzzer_volume">
+                <value name="VOLUME">
+                    <block type="math_number"><field name="NUM">50</field></block>
+                </value>
+            </block>
+            <block type="kb_buzzer_freq">
+                <value name="FREQ">
+                    <block type="math_number"><field name="NUM">1000</field></block>
+                </value>
+            </block>
             <block type="kb_usb_output"></block>
         </category>
 
-        <category name="2. เวลา & หน่วงเวลา" colour="#5b80a5">
+        <!-- Category: Delay & Time -->
+        <category name="⏱️ เวลา & การหน่วง" colour="#5b80a5">
             <block type="time_delay">
                 <value name="DELAY_TIME">
-                    <shadow type="math_number"><field name="NUM">1</field></shadow>
+                    <block type="math_number"><field name="NUM">1</field></block>
                 </value>
             </block>
         </category>
 
-        <category name="3. พอร์ตภายนอก (GPIO)" colour="#a5805b">
+        <!-- Category: Clock / RTC -->
+        <category name="⏰ นาฬิกา RTC" colour="#2b8cbe">
+            <block type="kb_rtc_sync_ntp"></block>
+            <block type="kb_rtc_get_time"></block>
+            <block type="kb_rtc_set_time"></block>
+        </category>
+
+        <!-- Category: Bluetooth BLE -->
+        <category name="📶 บลูทูธ (BLE)" colour="#8e44ad">
+            <block type="kb_ble_init">
+                <value name="NAME">
+                    <block type="text"><field name="TEXT">KidBright32</field></block>
+                </value>
+            </block>
+            <block type="kb_ble_send"></block>
+            <block type="kb_ble_read"></block>
+            <block type="kb_ble_is_connected"></block>
+        </category>
+
+        <!-- Category: WiFi & Network -->
+        <category name="🌐 WiFi & เครือข่าย" colour="#16a085">
+            <block type="kb_wifi_connect">
+                <value name="SSID">
+                    <block type="text"><field name="TEXT">WiFi_Name</field></block>
+                </value>
+                <value name="PASSWORD">
+                    <block type="text"><field name="TEXT">WiFi_Password</field></block>
+                </value>
+            </block>
+            <block type="kb_wifi_is_connected"></block>
+            <block type="kb_wifi_get_ip"></block>
+            <block type="kb_http_get"></block>
+        </category>
+
+        <!-- Category: GPIO & Servo -->
+        <category name="🔌 GPIO & เซอร์โว" colour="#a5805b">
             <block type="digital_write"></block>
             <block type="analog_read"></block>
             <block type="servo_move"></block>
@@ -156,34 +230,59 @@
 
         <sep></sep>
 
-        <category name="4. ตรรกศาสตร์" colour="#337ab7">
+        <!-- Standard Blockly Categories -->
+        <category name="🔀 ตรรกะ" colour="#5b80a5">
             <block type="controls_if"></block>
             <block type="logic_compare"></block>
             <block type="logic_operation"></block>
-            <block type="logic_negate"></block>
             <block type="logic_boolean"></block>
+            <block type="logic_negate"></block>
         </category>
 
-        <category name="5. ลูป (Loops)" colour="#5ba55b">
+        <category name="🔁 วนซ้ำ" colour="#5ba55b">
             <block type="controls_repeat_ext">
                 <value name="TIMES">
-                    <shadow type="math_number"><field name="NUM">5</field></shadow>
+                    <block type="math_number"><field name="NUM">10</field></block>
                 </value>
             </block>
             <block type="controls_whileUntil"></block>
+            <block type="controls_for">
+                <value name="FROM">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+                <value name="TO">
+                    <block type="math_number"><field name="NUM">10</field></block>
+                </value>
+                <value name="BY">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+            </block>
         </category>
 
-        <category name="6. คณิตศาสตร์ & ข้อความ" colour="#5b67a5">
+        <category name="🔢 คณิตศาสตร์" colour="#5b67a5">
             <block type="math_number"><field name="NUM">0</field></block>
-            <block type="text"><field name="TEXT"></field></block>
             <block type="math_arithmetic"></block>
-            <block type="math_random_int"></block>
+            <block type="math_random_int">
+                <value name="FROM">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+                <value name="TO">
+                    <block type="math_number"><field name="NUM">100</field></block>
+                </value>
+            </block>
         </category>
 
-        <category name="7. ตัวแปร" colour="#a55ba5" custom="VARIABLE"></category>
-        <category name="8. ฟังก์ชัน" colour="#995ba5" custom="PROCEDURE"></category>
+        <category name="📝 ข้อความ" colour="#5ba58c">
+            <block type="text"></block>
+            <block type="text_join"></block>
+            <block type="text_length"></block>
+        </category>
+
+        <category name="📦 ตัวแปร" custom="VARIABLE" colour="#a55ba5"></category>
     </xml>
 
-    <script src="app.js?v=3.1"></script>
+    <!-- App Logic -->
+    <script src="app.js"></script>
+
 </body>
 </html>
