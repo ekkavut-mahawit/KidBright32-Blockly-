@@ -1,404 +1,364 @@
-// =========================================================================
-// 💡 1. JAVASCRIPT HOOK: สลับคลาสเพื่อแสดงผลจุดไฟ LED สีแดง (Dot Matrix)
-// =========================================================================
-if (typeof Blockly !== 'undefined' && Blockly.FieldCheckbox) {
-    const originalSetValue = Blockly.FieldCheckbox.prototype.setValue;
-    Blockly.FieldCheckbox.prototype.setValue = function(newValue) {
-        originalSetValue.call(this, newValue);
-        const rootNode = this.getSvgRoot ? this.getSvgRoot() : this.fieldGroup_;
-        if (rootNode) {
-            const isTrue = (this.getValue() === 'TRUE' || newValue === true || newValue === 'TRUE');
-            if (isTrue) {
-                rootNode.classList.add('led-on');
-            } else {
-                rootNode.classList.remove('led-on');
-            }
-        }
-    };
-}
-
-// =========================================================================
-// 🧩 2. นิยามบล็อกคำสั่ง (Block Definitions) สำหรับ KidBright32
-// =========================================================================
-
-Blockly.Blocks['kb_matrix_draw'] = {
-    init: function() {
-        this.appendDummyInput().appendField("🎨 วาดรูปบนจอ Matrix (16x8)");
-        for (let row = 0; row < 8; row++) {
-            let input = this.appendDummyInput();
-            for (let col = 0; col < 16; col++) {
-                input.appendField(new Blockly.FieldCheckbox("FALSE"), `LED_${row}_${col}`);
-            }
-        }
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(20);
-        this.setTooltip("คลิกจุดไฟ LED เพื่อวาดรูป");
-    }
-};
-
-Blockly.Blocks['kb_matrix_text'] = {
-    init: function() {
-        this.appendDummyInput().appendField("📺 แสดงข้อความบน Matrix");
-        this.appendValueInput("TEXT").setCheck("String");
-        this.setInputsInline(true);
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(20);
-    }
-};
-
-Blockly.Blocks['kb_read_button'] = {
-    init: function() {
-        this.appendDummyInput()
-            .appendField("🔘 สถานะปุ่ม")
-            .appendField(new Blockly.FieldDropdown([["Switch 1", "16"], ["Switch 2", "14"]]), "BTN");
-        this.setOutput(true, "Boolean");
-        this.setColour(45);
-    }
-};
-
-Blockly.Blocks['kb_read_light'] = {
-    init: function() {
-        this.appendDummyInput().appendField("☀️ ความสว่างแสง (LDR)");
-        this.setOutput(true, "Number");
-        this.setColour(45);
-    }
-};
-
-Blockly.Blocks['kb_buzzer'] = {
-    init: function() {
-        this.appendDummyInput()
-            .appendField("🔊 เสียง Buzzer ความถี่")
-            .appendField(new Blockly.FieldDropdown([["ปิดเสียง", "0"], ["440 Hz (A4)", "440"], ["1000 Hz", "1000"], ["2000 Hz", "2000"]]), "FREQ");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(20);
-    }
-};
-
-Blockly.Blocks['kb_usb_output'] = {
-    init: function() {
-        this.appendDummyInput()
-            .appendField("🔌 สวิตช์พอร์ต USB OUT")
-            .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(20);
-    }
-};
-
-Blockly.Blocks['time_delay'] = {
-    init: function() {
-        this.appendValueInput("DELAY_TIME")
-            .setCheck("Number")
-            .appendField("⏱️ หน่วงเวลา (วินาที)");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(210);
-    }
-};
-
-Blockly.Blocks['digital_write'] = {
-    init: function() {
-        this.appendDummyInput()
-            .appendField("⚡ ส่งสัญญาณออก (Digital)")
-            .appendField("พอร์ต Pin")
-            .appendField(new Blockly.FieldDropdown([["IN/OUT 1 (Pin 18)", "18"], ["IN/OUT 2 (Pin 19)", "19"], ["IN/OUT 3 (Pin 23)", "23"]]), "PIN")
-            .appendField("สถานะ")
-            .appendField(new Blockly.FieldDropdown([["เปิด (HIGH)", "1"], ["ปิด (LOW)", "0"]]), "STATE");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(120);
-    }
-};
-
-Blockly.Blocks['analog_read'] = {
-    init: function() {
-        this.appendDummyInput()
-            .appendField("📈 อ่านค่าเซนเซอร์ (Analog)")
-            .appendField(new Blockly.FieldDropdown([["IN 1 (Pin 36)", "36"], ["IN 2 (Pin 39)", "39"], ["IN 3 (Pin 34)", "34"]]), "PIN");
-        this.setOutput(true, "Number");
-        this.setColour(45);
-    }
-};
-
-Blockly.Blocks['servo_move'] = {
-    init: function() {
-        this.appendDummyInput()
-            .appendField("🤖 หมุนเซอร์โว (Servo)")
-            .appendField(new Blockly.FieldDropdown([["OUT 1 (Pin 18)", "18"], ["OUT 2 (Pin 19)", "19"]]), "PIN")
-            .appendField("มุม (0-180°)")
-            .appendField(new Blockly.FieldNumber(90, 0, 180), "ANGLE");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(120);
-    }
-};
-
-// =========================================================================
-// 🐍 3. ตัวแปลโค้ด MicroPython (Python Generators)
-// =========================================================================
-
-Blockly.Python['kb_matrix_draw'] = function(block) {
-    let bytes = [];
-    for (let col = 0; col < 16; col++) {
-        let colVal = 0;
-        for (let row = 0; row < 8; row++) {
-            let isChecked = block.getFieldValue(`LED_${row}_${col}`) === 'TRUE';
-            if (isChecked) {
-                colVal |= (1 << row);
-            }
-        }
-        bytes.push('0x' + colVal.toString(16).padStart(2, '0'));
-    }
-    return `display.draw_raw(bytes([${bytes.join(', ')}]))\n`;
-};
-
-Blockly.Python['kb_matrix_text'] = function(block) {
-    let text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_ATOMIC) || "''";
-    return `display.scroll(${text})\n`;
-};
-
-Blockly.Python['kb_read_button'] = function(block) {
-    let pin = block.getFieldValue('BTN');
-    return [`(Pin(${pin}, Pin.IN).value() == 0)`, Blockly.Python.ORDER_RELATIONAL];
-};
-
-Blockly.Python['kb_read_light'] = function(block) {
-    return [`ADC(Pin(36)).read()`, Blockly.Python.ORDER_ATOMIC];
-};
-
-Blockly.Python['kb_buzzer'] = function(block) {
-    let freq = block.getFieldValue('FREQ');
-    if (freq === "0") {
-        return `PWM(Pin(25), freq=1000, duty=0)\n`;
-    }
-    return `PWM(Pin(25), freq=${freq}, duty=512)\n`;
-};
-
-Blockly.Python['kb_usb_output'] = function(block) {
-    let state = block.getFieldValue('STATE');
-    return `Pin(27, Pin.OUT).value(${state})\n`;
-};
-
-Blockly.Python['time_delay'] = function(block) {
-    let delayTime = Blockly.Python.valueToCode(block, 'DELAY_TIME', Blockly.Python.ORDER_ATOMIC) || '1';
-    return `time.sleep(${delayTime})\n`;
-};
-
-Blockly.Python['digital_write'] = function(block) {
-    let pin = block.getFieldValue('PIN');
-    let state = block.getFieldValue('STATE');
-    return `Pin(${pin}, Pin.OUT).value(${state})\n`;
-};
-
-Blockly.Python['analog_read'] = function(block) {
-    let pin = block.getFieldValue('PIN');
-    return [`ADC(Pin(${pin})).read()`, Blockly.Python.ORDER_ATOMIC];
-};
-
-Blockly.Python['servo_move'] = function(block) {
-    let pin = block.getFieldValue('PIN');
-    let angle = Number(block.getFieldValue('ANGLE'));
-    let duty = Math.floor(26 + (angle / 180) * 102);
-    return `PWM(Pin(${pin}), freq=50, duty=${duty})\n`;
-};
-
-// =========================================================================
-// 🚀 4. เริ่มต้นระบบ Blockly
-// =========================================================================
-
+// ==========================================
+// 1. ตัวแปรระบบหลัก (Global Variables)
+// ==========================================
 let workspace = null;
 let serialPort = null;
+let serialWriter = null;
 let bleDevice = null;
 let bleCharacteristic = null;
-let currentMode = 'board';
+let isSimMode = false;
 
-window.addEventListener('DOMContentLoaded', () => {
+const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_RX_CHARACTERISTIC_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+// ==========================================
+// 2. การเริ่มต้นระบบ Blockly Workspace
+// ==========================================
+document.addEventListener("DOMContentLoaded", function () {
     workspace = Blockly.inject('blocklyDiv', {
         toolbox: document.getElementById('toolbox'),
         scrollbars: true,
-        zoom: { controls: true, wheel: true, startScale: 0.9, maxScale: 2, minScale: 0.4 },
-        grid: { spacing: 20, length: 3, colour: '#ccc', snap: true }
+        trashcan: true,
+        zoom: {
+            controls: true,
+            wheel: true,
+            startScale: 1.0,
+            maxScale: 3,
+            minScale: 0.3,
+            scaleSpeed: 1.2
+        },
+        grid: {
+            spacing: 20,
+            length: 3,
+            colour: '#ccc',
+            snap: true
+        }
     });
 
-    workspace.addChangeListener(() => {
-        let code = Blockly.Python.workspaceToCode(workspace);
-        document.getElementById('pythonCodeBox').value = code || "# ลากบล็อกมาวางเพื่อสร้างโค้ด...";
+    registerKidBrightBlocks();
+    workspace.addChangeListener(updatePythonCode);
+    
+    window.addEventListener('resize', function() {
+        Blockly.svgResize(workspace);
     });
 });
 
-// =========================================================================
-// 🔌 5. ระบบเชื่อมต่อ USB & BLE (แก้ไขจุดตาย REPL และ Header Error)
-// =========================================================================
+// ==========================================
+// 3. ตัวสร้างโค้ด MicroPython (Block Generators)
+// ==========================================
+function registerKidBrightBlocks() {
+    
+    // --- หมวดที่ 1: อุปกรณ์ในบอร์ด KidBright ---
+    
+    Blockly.Blocks['kb_matrix_text'] = {
+        init: function() {
+            this.appendValueInput("TEXT")
+                .setCheck("String")
+                .appendField("แสดงข้อความบนหน้าจอ");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_matrix_text'] = function(block) {
+        var text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_ATOMIC) || "''";
+        return `display.scroll(${text})\n`;
+    };
 
+    Blockly.Blocks['kb_matrix_draw'] = {
+        init: function() {
+            this.appendDummyInput().appendField("วาดรูปไฟ LED (16x8)");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_matrix_draw'] = function(block) {
+        return `display.show_custom()\n`;
+    };
+
+    Blockly.Blocks['kb_read_button'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("อ่านค่าสวิตช์")
+                .appendField(new Blockly.FieldDropdown([["SW1", "1"], ["SW2", "2"]]), "BTN");
+            this.setOutput(true, "Boolean");
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_read_button'] = function(block) {
+        var btn = block.getFieldValue('BTN');
+        return [`btn${btn}.value() == 0`, Blockly.Python.ORDER_RELATIONAL];
+    };
+
+    Blockly.Blocks['kb_read_light'] = {
+        init: function() {
+            this.appendDummyInput().appendField("อ่านค่าเซนเซอร์วัดแสง (%)");
+            this.setOutput(true, "Number");
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_read_light'] = function(block) {
+        return [`int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0`, Blockly.Python.ORDER_ATOMIC];
+    };
+
+    Blockly.Blocks['kb_buzzer'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("เสียง Buzzer")
+                .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer'] = function(block) {
+        var state = block.getFieldValue('STATE');
+        return `buzzer.value(${state})\n`;
+    };
+
+    Blockly.Blocks['kb_usb_output'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("ช่อง USB Out")
+                .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_usb_output'] = function(block) {
+        var state = block.getFieldValue('STATE');
+        return `usb_out.value(${state})\n`;
+    };
+
+    // --- หมวดที่ 2: เวลา & หน่วงเวลา ---
+    
+    Blockly.Blocks['time_delay'] = {
+        init: function() {
+            this.appendValueInput("DELAY_TIME")
+                .setCheck("Number")
+                .appendField("หน่วงเวลา (วินาที)");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#5b80a5");
+        }
+    };
+    Blockly.Python['time_delay'] = function(block) {
+        var delayTime = Blockly.Python.valueToCode(block, 'DELAY_TIME', Blockly.Python.ORDER_ATOMIC) || "1";
+        return `time.sleep(${delayTime})\n`;
+    };
+
+    // --- หมวดที่ 3: พอร์ตเชื่อมต่อภายนอก (GPIO) ---
+
+    Blockly.Blocks['digital_write'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("ส่งสัญญาณ Digital ขา")
+                .appendField(new Blockly.FieldDropdown([["OUT1 (Pin 18)", "18"], ["OUT2 (Pin 19)", "19"], ["OUT3 (Pin 23)", "23"]]), "PIN")
+                .appendField("สถานะ")
+                .appendField(new Blockly.FieldDropdown([["HIGH (1)", "1"], ["LOW (0)", "0"]]), "STATE");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#a5805b");
+        }
+    };
+    Blockly.Python['digital_write'] = function(block) {
+        var pin = block.getFieldValue('PIN');
+        var state = block.getFieldValue('STATE');
+        return `Pin(${pin}, Pin.OUT).value(${state})\n`;
+    };
+
+    Blockly.Blocks['analog_read'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("อ่านค่า Analog ขา")
+                .appendField(new Blockly.FieldDropdown([["IN1 (Pin 32)", "32"], ["IN2 (Pin 33)", "33"], ["IN3 (Pin 34)", "34"], ["IN4 (Pin 35)", "35"]]), "PIN");
+            this.setOutput(true, "Number");
+            this.setColour("#a5805b");
+        }
+    };
+    Blockly.Python['analog_read'] = function(block) {
+        var pin = block.getFieldValue('PIN');
+        return [`ADC(Pin(${pin})).read()`, Blockly.Python.ORDER_ATOMIC];
+    };
+
+    Blockly.Blocks['servo_move'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("สั่งงาน Servo ขา")
+                .appendField(new Blockly.FieldDropdown([["SV1 (Pin 15)", "15"], ["SV2 (Pin 17)", "17"]]), "PIN")
+                .appendField("องศา (0-180)")
+                .appendField(new Blockly.FieldAngle("90"), "ANGLE");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#a5805b");
+        }
+    };
+    Blockly.Python['servo_move'] = function(block) {
+        var pin = block.getFieldValue('PIN');
+        var angle = block.getFieldValue('ANGLE');
+        return `set_servo_angle(${pin}, ${angle})\n`;
+    };
+}
+
+// ==========================================
+// 4. การจัดการพรีวิวและคัดลอกโค้ด
+// ==========================================
+function updatePythonCode() {
+    if (!workspace) return;
+    var code = Blockly.Python.workspaceToCode(workspace);
+    
+    var headerCode = "# Code generated for KidBright32 (MicroPython)\n" +
+                     "import machine, time\n" +
+                     "from machine import Pin, ADC, PWM\n\n";
+                     
+    document.getElementById("pythonCodeBox").value = headerCode + code;
+}
+
+function copyPythonCode() {
+    var codeBox = document.getElementById("pythonCodeBox");
+    codeBox.select();
+    document.execCommand("copy");
+    alert("📋 คัดลอกโค้ด MicroPython เรียบร้อยแล้ว!");
+}
+
+// ==========================================
+// 5. ระบบเชื่อมต่อพอร์ต Serial (USB)
+// ==========================================
 async function connectUSB() {
-    if (!('serial' in navigator)) {
-        alert("เบราว์เซอร์นี้ไม่รองรับ Web Serial กรุณาใช้ Google Chrome หรือ Edge");
+    if (!("serial" in navigator)) {
+        alert("⚠️ เบราว์เซอร์ของคุณไม่รองรับ Web Serial API กรุณาใช้ Google Chrome หรือ Microsoft Edge");
         return;
     }
+
     try {
         serialPort = await navigator.serial.requestPort();
         await serialPort.open({ baudRate: 115200 });
-        const btn = document.getElementById('usbBtn');
-        if (btn) {
-            btn.style.backgroundColor = '#16a34a';
-            btn.innerText = '🔌 USB: เชื่อมต่อแล้ว';
-        }
-        alert('เชื่อมต่อบอร์ด KidBright32 ผ่าน USB สำเร็จ!');
+        
+        const textEncoder = new TextEncoderStream();
+        textEncoder.readable.pipeTo(serialPort.writable);
+        serialWriter = textEncoder.writable.getWriter();
+
+        document.getElementById("usbBtn").style.backgroundColor = "#16a34a";
+        document.getElementById("usbBtn").innerText = "🔌 เชื่อมต่อ USB แล้ว";
+        alert("🟢 เชื่อมต่อบอร์ด KidBright32 ผ่าน USB เรียบร้อย!");
     } catch (err) {
-        console.error("USB Error:", err);
+        console.error("Error connecting USB:", err);
+        alert("❌ ไม่สามารถเชื่อมต่อ USB ได้: " + err.message);
     }
 }
 
+// ==========================================
+// 6. ระบบเชื่อมต่อไร้สาย Bluetooth (BLE)
+// ==========================================
 async function connectBLE() {
-    if (!('bluetooth' in navigator)) {
-        alert("เบราว์เซอร์นี้ไม่รองรับ Web Bluetooth กรุณาใช้ Chrome หรือแอป Bluefy บน iOS");
+    if (!("bluetooth" in navigator)) {
+        alert("⚠️ เบราว์เซอร์ของคุณไม่รองรับ Web Bluetooth API");
         return;
     }
+
     try {
+        console.log("กำลังค้นหาอุปกรณ์ BLE...");
         bleDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ namePrefix: 'KidBright' }, { namePrefix: 'ESP32' }],
-            optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+            filters: [{ namePrefix: "KidBright32" }],
+            optionalServices: [UART_SERVICE_UUID]
         });
 
         bleDevice.addEventListener('gattserverdisconnected', onBLEDisconnected);
 
         const server = await bleDevice.gatt.connect();
-        const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
-        bleCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
+        const service = await server.getPrimaryService(UART_SERVICE_UUID);
+        bleCharacteristic = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
 
-        const btn = document.getElementById('bleBtn');
-        if (btn) {
-            btn.style.backgroundColor = '#16a34a';
-            btn.innerText = '📶 BLE: เชื่อมต่อแล้ว';
-        }
-        alert('เชื่อมต่อ KidBright32 ผ่านบลูทูธไร้สายสำเร็จ!');
+        document.getElementById("bleBtn").style.backgroundColor = "#16a34a";
+        document.getElementById("bleBtn").innerText = "📶 เชื่อมต่อ BLE แล้ว";
+        alert("🟢 เชื่อมต่อ Bluetooth (BLE) สำเร็จ!");
     } catch (err) {
-        console.error("BLE Connect Error:", err);
-        alert('❌ เชื่อมต่อ Bluetooth ล้มเหลว: ' + err.message);
+        console.error("Error connecting BLE:", err);
+        alert("❌ ไม่สามารถเชื่อมต่อ Bluetooth ได้: " + err.message);
     }
 }
 
 function onBLEDisconnected() {
+    document.getElementById("bleBtn").style.backgroundColor = "#9333ea";
+    document.getElementById("bleBtn").innerText = "📶 บลูทูธ (BLE)";
     bleCharacteristic = null;
-    const btn = document.getElementById('bleBtn');
-    if (btn) {
-        btn.style.backgroundColor = '#9333ea';
-        btn.innerText = '📶 บลูทูธ (BLE)';
-    }
-    alert('⚠️ สัญญาณ Bluetooth หลุดการเชื่อมต่อ กรุณากดเชื่อมต่อใหม่อีกครั้ง');
+    alert("🔴 การเชื่อมต่อ Bluetooth หลุด!");
 }
 
-async function sendBLEPayload(payload) {
-    if (!bleCharacteristic) throw new Error("ไม่ได้เชื่อมต่อ BLE");
-
-    const encoder = new TextEncoder();
-    const data = encoder.encode(payload);
-    const chunkSize = 20;
-
-    for (let i = 0; i < data.length; i += chunkSize) {
-        const chunk = data.slice(i, i + chunkSize);
-        if (bleCharacteristic.writeValueWithResponse) {
-            await bleCharacteristic.writeValueWithResponse(chunk);
-        } else if (bleCharacteristic.writeValueWithoutResponse) {
-            await bleCharacteristic.writeValueWithoutResponse(chunk);
-        } else {
-            await bleCharacteristic.writeValue(chunk);
-        }
-        await new Promise(resolve => setTimeout(resolve, 40));
-    }
-}
-
+// ==========================================
+// 7. ฟังก์ชันส่งโค้ดประมวลผล (Execute / Run)
+// ==========================================
 async function executeCode() {
-    let rawCode = Blockly.Python.workspaceToCode(workspace);
-    if (!rawCode.trim()) {
-        alert("กรุณาลากบล็อกคำสั่งวางบนพื้นที่ทำงานก่อนส่งโค้ด");
+    var code = document.getElementById("pythonCodeBox").value;
+
+    if (!code || code.trim() === "") {
+        alert("⚠️ กรุณาลากวางบล็อกคำสั่งก่อนส่งโค้ด!");
         return;
     }
 
-    // 🎯 แก้ไขจุดตาย 1: ตัด 'import display' ออกเด็ดขาด (เพราะ display ถูกประกาศเป็น Object ไว้ใน main.py)
-    let header = "from machine import Pin, ADC, PWM, I2C\nimport time\n";
-    let fullCode = header + rawCode;
-
-    if (currentMode === 'sim') {
-        alert("โหมดจำลอง (Wokwi): คัดลอกโค้ดไปวางเรียบร้อยแล้ว");
+    // --- โหมดจำลอง Wokwi ---
+    if (isSimMode) {
         copyPythonCode();
+        alert("🚀 คัดลอกโค้ดเรียบร้อย! กรุณานำโค้ดไปวางในหน้าต่าง Wokwi เพื่อสั่งจำลองการทำงาน");
         return;
     }
 
-    // 🎯 แก้ไขจุดตาย 2: ลำดับขั้นตอนการส่ง USB แบบ Step-by-Step พร้อม Delay ให้ MicroPython สลับโหมดทัน
-    if (serialPort && serialPort.writable) {
-        try {
-            const writer = serialPort.writable.getWriter();
-            const encoder = new TextEncoder();
-
-            // 1. ส่ง Control-C สองครั้งเพื่อยกเลิกลูปเก่าที่รันอยู่
-            await writer.write(encoder.encode("\x03\x03"));
-            await new Promise(r => setTimeout(r, 150)); 
-
-            // 2. ส่ง Control-A เพื่อเข้า Raw REPL Mode
-            await writer.write(encoder.encode("\x01"));
-            await new Promise(r => setTimeout(r, 150));
-
-            // 3. ส่งตัวเนื้อโค้ด Python
-            await writer.write(encoder.encode(fullCode));
-            await new Promise(r => setTimeout(r, 100));
-
-            // 4. ส่ง Control-D สั่งรันโค้ดทันที
-            await writer.write(encoder.encode("\x04"));
-            writer.releaseLock();
-
-            alert("🚀 ส่งโค้ดและสั่งรันบนบอร์ดสำเร็จ!");
-            return;
-        } catch (err) {
-            alert("❌ ส่งข้อมูลผ่าน USB ล้มเหลว: " + err.message);
-            return;
-        }
-    }
-
+    // --- โหมดการส่งผ่าน Bluetooth (BLE) ---
     if (bleCharacteristic) {
         try {
-            const replPayload = "\x03\x03\x01" + fullCode + "\x04";
-            await sendBLEPayload(replPayload);
-            alert("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายเรียบร้อย!");
+            const encoder = new TextEncoder();
+            const data = encoder.encode(code + "\x04"); 
+            const chunkSize = 20;
+
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const chunk = data.slice(i, i + chunkSize);
+                await bleCharacteristic.writeValue(chunk);
+                await new Promise(r => setTimeout(r, 40));
+            }
+            alert("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายสำเร็จ!");
             return;
         } catch (err) {
-            alert("❌ ส่งข้อมูลผ่าน BLE ล้มเหลว: " + err.message);
+            alert("❌ ส่งโค้ดผ่าน Bluetooth ล้มเหลว: " + err.message);
             return;
         }
     }
 
-    alert("กรุณาเสียบสาย USB หรือเชื่อมต่อ Bluetooth BLE ก่อนส่งโค้ดครับ");
+    // --- โหมดการส่งผ่านสาย USB (Serial) ---
+    if (serialWriter) {
+        try {
+            await serialWriter.write(code + "\x04");
+            alert("🚀 ส่งโค้ดไปยังบอร์ดผ่าน USB เรียบร้อย!");
+            return;
+        } catch (err) {
+            alert("❌ ส่งโค้ดผ่าน USB ล้มเหลว: " + err.message);
+            return;
+        }
+    }
+
+    alert("⚠️ กรุณาเชื่อมต่อ USB หรือ Bluetooth (BLE) ก่อนกดส่งโค้ด!");
 }
 
+// ==========================================
+// 8. การสลับโหมดบอร์ดจริง / โหมดจำลอง (Wokwi)
+// ==========================================
 function toggleMode() {
-    const sim = document.getElementById('simContainer');
-    const btn = document.getElementById('modeBtn');
-    
-    if (currentMode === 'board') {
-        currentMode = 'sim';
-        sim.style.display = 'flex';
-        btn.innerText = '🔄 โหมด: จำลอง (Wokwi)';
-        btn.style.backgroundColor = '#8b5cf6';
-    } else {
-        currentMode = 'board';
-        sim.style.display = 'none';
-        btn.innerText = '🔄 โหมด: บอร์ดจริง';
-        btn.style.backgroundColor = '#f59e0b';
-    }
-    window.dispatchEvent(new Event('resize'));
-}
+    isSimMode = !isSimMode;
+    const modeBtn = document.getElementById("modeBtn");
+    const simContainer = document.getElementById("simContainer");
 
-async function copyPythonCode() {
-    const codeBox = document.getElementById('pythonCodeBox');
-    try {
-        await navigator.clipboard.writeText(codeBox.value);
-        alert('คัดลอกโค้ด MicroPython เรียบร้อยแล้ว!');
-    } catch (err) {
-        codeBox.select();
-        document.execCommand('copy');
-        alert('คัดลอกโค้ดเรียบร้อยแล้ว!');
+    if (isSimMode) {
+        modeBtn.innerText = "🔄 โหมด: จำลอง (Wokwi)";
+        modeBtn.style.backgroundColor = "#ea580c";
+        simContainer.style.display = "flex";
+    } else {
+        modeBtn.innerText = "🔄 โหมด: บอร์ดจริง";
+        modeBtn.style.backgroundColor = "#f59e0b";
+        simContainer.style.display = "none";
     }
+    
+    setTimeout(() => {
+        Blockly.svgResize(workspace);
+    }, 100);
 }
