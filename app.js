@@ -201,7 +201,7 @@ Blockly.Python['analog_read'] = function(block) {
 Blockly.Python['servo_move'] = function(block) {
     let pin = block.getFieldValue('PIN');
     let angle = Number(block.getFieldValue('ANGLE'));
-    let duty = Math.floor(26 + (angle / 180) * 102); // คำนวณช่วง Pulse 0.5ms - 2.5ms (Duty 26-128)
+    let duty = Math.floor(26 + (angle / 180) * 102);
     return `PWM(Pin(${pin}), freq=50, duty=${duty})\n`;
 };
 
@@ -230,7 +230,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // =========================================================================
-// 🔌 5. ระบบเชื่อมต่อ USB & Bluetooth BLE (พร้อม Raw REPL Interrupt Protocol)
+// 🔌 5. ระบบเชื่อมต่อ USB & Bluetooth BLE (เสถียร ไม่หลุดง่าย)
 // =========================================================================
 
 async function connectUSB() {
@@ -241,8 +241,11 @@ async function connectUSB() {
     try {
         serialPort = await navigator.serial.requestPort();
         await serialPort.open({ baudRate: 115200 });
-        document.getElementById('usbBtn').style.backgroundColor = '#16a34a';
-        document.getElementById('usbBtn').innerText = '🔌 USB: เชื่อมต่อแล้ว';
+        const btn = document.getElementById('usbBtn');
+        if (btn) {
+            btn.style.backgroundColor = '#16a34a';
+            btn.innerText = '🔌 USB: เชื่อมต่อแล้ว';
+        }
         alert('เชื่อมต่อบอร์ด KidBright32 ผ่าน USB สำเร็จ!');
     } catch (err) {
         console.error("USB Error:", err);
@@ -256,19 +259,55 @@ async function connectBLE() {
     }
     try {
         bleDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ namePrefix: 'KidBright' }],
+            filters: [{ namePrefix: 'KidBright' }, { namePrefix: 'ESP32' }],
             optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
         });
+
+        bleDevice.addEventListener('gattserverdisconnected', onBLEDisconnected);
 
         const server = await bleDevice.gatt.connect();
         const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
         bleCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
 
-        document.getElementById('bleBtn').style.backgroundColor = '#16a34a';
-        document.getElementById('bleBtn').innerText = '📶 BLE: เชื่อมต่อแล้ว';
+        const btn = document.getElementById('bleBtn');
+        if (btn) {
+            btn.style.backgroundColor = '#16a34a';
+            btn.innerText = '📶 BLE: เชื่อมต่อแล้ว';
+        }
         alert('เชื่อมต่อ KidBright32 ผ่านบลูทูธไร้สายสำเร็จ!');
     } catch (err) {
-        console.error("BLE Error:", err);
+        console.error("BLE Connect Error:", err);
+        alert('❌ เชื่อมต่อ Bluetooth ล้มเหลว: ' + err.message);
+    }
+}
+
+function onBLEDisconnected() {
+    bleCharacteristic = null;
+    const btn = document.getElementById('bleBtn');
+    if (btn) {
+        btn.style.backgroundColor = '#9333ea';
+        btn.innerText = '📶 บลูทูธ (BLE)';
+    }
+    alert('⚠️ สัญญาณ Bluetooth หลุดการเชื่อมต่อ กรุณากดเชื่อมต่อใหม่อีกครั้ง');
+}
+
+async function sendBLEPayload(payload) {
+    if (!bleCharacteristic) throw new Error("ไม่ได้เชื่อมต่อ BLE");
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(payload);
+    const chunkSize = 20;
+
+    for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        if (bleCharacteristic.writeValueWithResponse) {
+            await bleCharacteristic.writeValueWithResponse(chunk);
+        } else if (bleCharacteristic.writeValueWithoutResponse) {
+            await bleCharacteristic.writeValueWithoutResponse(chunk);
+        } else {
+            await bleCharacteristic.writeValue(chunk);
+        }
+        await new Promise(resolve => setTimeout(resolve, 40));
     }
 }
 
@@ -288,34 +327,31 @@ async function executeCode() {
         return;
     }
 
-    // ส่งคำสั่งแบบ Raw REPL Control Sequence: \x03\x03 (Interrupt) -> \x01 (Enter Raw REPL) -> [Code] -> \x04 (Execute)
     const replPayload = "\x03\x03\x01" + fullCode + "\x04";
 
     if (serialPort && serialPort.writable) {
-        const writer = serialPort.writable.getWriter();
-        const encoder = new TextEncoder();
-        await writer.write(encoder.encode(replPayload));
-        writer.releaseLock();
-        alert("🚀 ส่งโค้ดผ่าน USB เรียบร้อย!");
-        return;
+        try {
+            const writer = serialPort.writable.getWriter();
+            const encoder = new TextEncoder();
+            await writer.write(encoder.encode(replPayload));
+            writer.releaseLock();
+            alert("🚀 ส่งโค้ดผ่าน USB เรียบร้อย!");
+            return;
+        } catch (err) {
+            alert("❌ ส่งข้อมูลผ่าน USB ล้มเหลว: " + err.message);
+            return;
+        }
     }
 
     if (bleCharacteristic) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(replPayload);
-        const chunkSize = 20;
-        
-        for (let i = 0; i < data.length; i += chunkSize) {
-            const chunk = data.slice(i, i + chunkSize);
-            if (bleCharacteristic.writeValueWithResponse) {
-                await bleCharacteristic.writeValueWithResponse(chunk);
-            } else {
-                await bleCharacteristic.writeValue(chunk);
-            }
-            await new Promise(r => setTimeout(r, 30));
+        try {
+            await sendBLEPayload(replPayload);
+            alert("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายเรียบร้อย!");
+            return;
+        } catch (err) {
+            alert("❌ ส่งข้อมูลผ่าน BLE ล้มเหลว: " + err.message);
+            return;
         }
-        alert("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายเรียบร้อย!");
-        return;
     }
 
     alert("กรุณาเสียบสาย USB หรือเชื่อมต่อ Bluetooth BLE ก่อนส่งโค้ดครับ");
