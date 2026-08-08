@@ -1,256 +1,334 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#111827">
-  <title>KidBright32 Blockly & MicroPython Studio</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KidBright32 Blockly & MicroPython Studio</title>
+    
+    <!-- 1. Blockly Core -->
+    <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
+    <!-- 2. Standard Blocks (จำเป็นต้องมีเพื่อแสดงบล็อก ตรรกะ, วนซ้ำ, คณิตศาสตร์, ข้อความ) -->
+    <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
+    <!-- 3. MicroPython Code Generator -->
+    <script src="https://unpkg.com/blockly/python_compressed.js"></script>
+    <!-- 4. Thai Language Pack -->
+    <script src="https://unpkg.com/blockly/msg/th.js"></script>
+    
+    <!-- Google Font & Styling -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Sarabun', sans-serif;
+        }
 
-  <!-- ล็อกเวอร์ชัน Blockly เพื่อให้ Block API และ Python generator ตรงกับ app.js -->
-  <script src="https://unpkg.com/blockly@9.3.3/blockly_compressed.js"></script>
-  <script src="https://unpkg.com/blockly@9.3.3/blocks_compressed.js"></script>
-  <script src="https://unpkg.com/blockly@9.3.3/python_compressed.js"></script>
-  <script src="https://unpkg.com/blockly@9.3.3/msg/th.js"></script>
+        body {
+            background-color: #1e1e24;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #111318;
-      --panel: #181b22;
-      --panel-2: #222631;
-      --line: #343947;
-      --accent: #ff6b00;
-      --green: #16a34a;
-      --blue: #2563eb;
-      --purple: #9333ea;
-      --muted: #a7afbf;
-    }
-    * { box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; margin: 0; }
-    body {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      color: #f8fafc;
-      background: var(--bg);
-      font-family: "Sarabun", "Noto Sans Thai", Tahoma, sans-serif;
-    }
-    header {
-      z-index: 2;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      justify-content: space-between;
-      min-height: 62px;
-      padding: 9px 16px;
-      border-bottom: 2px solid var(--accent);
-      background: #0d0f14;
-    }
-    .brand { display: flex; align-items: center; gap: 9px; min-width: 250px; }
-    .brand-mark { font-size: 1.55rem; }
-    .brand-name { color: var(--accent); font-size: 1.08rem; font-weight: 800; }
-    .brand-version { color: var(--muted); font-size: .72rem; }
-    .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
-    button {
-      border: 1px solid transparent;
-      border-radius: 7px;
-      padding: 8px 12px;
-      color: white;
-      background: #475569;
-      font-family: inherit;
-      font-size: .86rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: filter .15s ease, transform .15s ease;
-    }
-    button:hover { filter: brightness(1.12); transform: translateY(-1px); }
-    button:disabled { opacity: .55; cursor: wait; transform: none; }
-    #usbBtn { background: var(--blue); }
-    #bleBtn { background: var(--purple); }
-    #runBtn { background: var(--green); }
-    #modeBtn { background: #d97706; }
-    .main { display: flex; min-height: 0; flex: 1; }
-    #blocklyDiv { min-width: 0; height: 100%; flex: 1; }
-    .side-panel {
-      display: flex;
-      flex: 0 0 min(450px, 40vw);
-      min-width: 330px;
-      flex-direction: column;
-      border-left: 1px solid var(--line);
-      background: var(--panel);
-    }
-    .panel-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 9px 12px;
-      border-bottom: 1px solid var(--line);
-      background: var(--panel-2);
-      font-size: .9rem;
-      font-weight: 700;
-    }
-    #pythonCodeBox {
-      width: 100%;
-      min-height: 0;
-      flex: 1;
-      resize: none;
-      border: 0;
-      outline: 0;
-      padding: 12px;
-      color: #6ee7a5;
-      background: #090b0f;
-      font: .82rem/1.48 Consolas, "Courier New", monospace;
-      tab-size: 4;
-    }
-    .console-wrap { height: 150px; border-top: 1px solid var(--line); }
-    #consoleBox {
-      height: calc(100% - 36px);
-      overflow: auto;
-      padding: 9px 12px;
-      color: #dbeafe;
-      background: #0c1220;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font: .78rem/1.45 Consolas, monospace;
-    }
-    #statusDot { width: 9px; height: 9px; border-radius: 50%; background: #64748b; }
-    #statusDot.ok { background: #22c55e; box-shadow: 0 0 7px #22c55e; }
-    #statusDot.busy { background: #f59e0b; box-shadow: 0 0 7px #f59e0b; }
-    #statusDot.error { background: #ef4444; box-shadow: 0 0 7px #ef4444; }
-    .hint { color: var(--muted); font-size: .72rem; font-weight: 400; }
-    .blocklyToolboxDiv { background: #20242d !important; }
-    .blocklyTreeLabel { font-family: inherit !important; }
-    @media (max-width: 900px) {
-      body { overflow: auto; }
-      header { align-items: flex-start; flex-direction: column; }
-      .actions { justify-content: flex-start; }
-      .main { flex-direction: column; min-height: 900px; }
-      #blocklyDiv { min-height: 520px; }
-      .side-panel { flex: 0 0 430px; width: 100%; min-width: 0; border-left: 0; border-top: 1px solid var(--line); }
-    }
-  </style>
+        /* Top Navbar */
+        header {
+            background-color: #141416;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #ff6b00;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ff6b00;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        button:hover {
+            opacity: 0.85;
+            transform: translateY(-1px);
+        }
+
+        #usbBtn { background-color: #2563eb; }
+        #bleBtn { background-color: #9333ea; }
+        #modeBtn { background-color: #f59e0b; }
+        .btn-run { background-color: #16a34a; }
+        .btn-copy { background-color: #475569; }
+
+        /* Main Workspace Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 60px);
+        }
+
+        #blocklyDiv {
+            flex: 1;
+            height: 100%;
+        }
+
+        /* Right Side Panel */
+        .side-panel {
+            width: 450px;
+            background-color: #18181b;
+            border-left: 1px solid #27272a;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background-color: #27272a;
+            padding: 10px 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+
+        .code-box-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+
+        #pythonCodeBox {
+            width: 100%;
+            flex: 1;
+            background-color: #09090b;
+            color: #22c55e;
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            resize: none;
+            outline: none;
+        }
+
+        /* Wokwi Simulation Container */
+        #simContainer {
+            height: 50%;
+            border-top: 1px solid #27272a;
+            display: none;
+            flex-direction: column;
+        }
+
+        #simContainer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <span class="brand-mark">🤖</span>
-      <div>
-        <div class="brand-name">KidBright32 MicroPython Studio</div>
-        <div class="brand-version">Studio v2.0.4 · Runtime ≥ v2.0.4 · Blockly 9.3.3</div>
-      </div>
-    </div>
-    <div class="actions">
-      <button id="usbBtn" type="button">🔌 เชื่อมต่อ USB</button>
-      <button id="bleBtn" type="button">📶 เชื่อมต่อ BLE</button>
-      <button id="modeBtn" type="button">🧪 โหมด: บอร์ดจริง</button>
-      <button id="saveBtn" type="button">💾 บันทึกบล็อก</button>
-      <button id="loadBtn" type="button">📂 เปิดบล็อก</button>
-      <button id="copyBtn" type="button">📋 คัดลอกโค้ด</button>
-      <button id="runBtn" type="button">🚀 ส่งและรัน</button>
-      <input id="workspaceFile" type="file" accept=".xml,text/xml" hidden>
-    </div>
-  </header>
 
-  <main class="main">
-    <div id="blocklyDiv" aria-label="พื้นที่วางบล็อกคำสั่ง"></div>
-    <aside class="side-panel">
-      <div class="panel-title">
-        <span>🐍 โค้ด MicroPython</span>
-        <span class="hint">ต้องใช้คู่กับ main.py v2.0.4 ขึ้นไป</span>
-      </div>
-      <textarea id="pythonCodeBox" readonly spellcheck="false" aria-label="โค้ด MicroPython ที่สร้างขึ้น"></textarea>
-      <section class="console-wrap">
-        <div class="panel-title">
-          <span>📟 สถานะและผลลัพธ์จากบอร์ด</span>
-          <span id="statusDot" aria-hidden="true"></span>
+    <!-- Header / Navbar -->
+    <header>
+        <div class="logo">
+            🤖 KidBright32 MicroPython Studio
         </div>
-        <div id="consoleBox" role="log" aria-live="polite">พร้อมเริ่มต้น — เปิดเว็บผ่าน HTTPS หรือ localhost</div>
-      </section>
-    </aside>
-  </main>
+        <div class="nav-buttons">
+            <button id="usbBtn" onclick="connectUSB()">🔌 เชื่อมต่อ USB</button>
+            <button id="bleBtn" onclick="connectBLE()">📶 บลูทูธ (BLE)</button>
+            <button id="modeBtn" onclick="toggleMode()">🔄 โหมด: บอร์ดจริง</button>
+            <button class="btn-copy" onclick="copyPythonCode()">📋 คัดลอกโค้ด</button>
+            <button class="btn-run" onclick="executeCode()">🚀 ส่งโค้ด / รันโค้ด</button>
+        </div>
+    </header>
 
-  <xml id="toolbox" style="display:none">
-    <category name="🚦 เริ่มโปรแกรม" colour="#ef4444">
-      <block type="kb_forever"></block>
-      <block type="time_delay"><value name="DELAY_TIME"><block type="math_number"><field name="NUM">1</field></block></value></block>
-      <block type="text_print"><value name="TEXT"><block type="text"><field name="TEXT">สวัสดี KidBright32</field></block></value></block>
-    </category>
-    <category name="📺 หน้าจอ LED" colour="#ff6b00">
-      <block type="kb_matrix_text"><value name="TEXT"><block type="text"><field name="TEXT">HELLO</field></block></value></block>
-      <block type="kb_matrix_draw"></block>
-      <block type="kb_matrix_clear"></block>
-    </category>
-    <category name="🔘 สวิตช์และเซนเซอร์" colour="#f97316">
-      <block type="kb_read_button"></block>
-      <block type="kb_read_light"></block>
-    </category>
-    <category name="🔊 เสียงและ USB Out" colour="#eab308">
-      <block type="kb_buzzer"></block>
-      <block type="kb_buzzer_volume"><value name="VOLUME"><block type="math_number"><field name="NUM">50</field></block></value></block>
-      <block type="kb_buzzer_freq"><value name="FREQ"><block type="math_number"><field name="NUM">1000</field></block></value></block>
-      <block type="kb_usb_output"></block>
-    </category>
-    <category name="⏰ นาฬิกา RTC" colour="#0284c7">
-      <block type="kb_rtc_sync_ntp"></block>
-      <block type="kb_rtc_get_time"></block>
-      <block type="kb_rtc_set_time"></block>
-    </category>
-    <category name="📶 Bluetooth BLE" colour="#8b5cf6">
-      <block type="kb_ble_init"><value name="NAME"><block type="text"><field name="TEXT">KidBright32-BLE</field></block></value></block>
-      <block type="kb_ble_send"><value name="TEXT"><block type="text"><field name="TEXT">Hello</field></block></value></block>
-      <block type="kb_ble_read"></block>
-      <block type="kb_ble_is_connected"></block>
-    </category>
-    <category name="🌐 Wi-Fi และเครือข่าย" colour="#059669">
-      <block type="kb_wifi_connect">
-        <value name="SSID"><block type="text"><field name="TEXT">WiFi_Name</field></block></value>
-        <value name="PASSWORD"><block type="text"><field name="TEXT">WiFi_Password</field></block></value>
-        <value name="TIMEOUT"><block type="math_number"><field name="NUM">15</field></block></value>
-      </block>
-      <block type="kb_wifi_is_connected"></block>
-      <block type="kb_wifi_get_ip"></block>
-      <block type="kb_http_get"><value name="URL"><block type="text"><field name="TEXT">https://example.com</field></block></value></block>
-    </category>
-    <category name="🔌 GPIO และเซอร์โว" colour="#a16207">
-      <block type="digital_write"></block>
-      <block type="analog_read"></block>
-      <block type="servo_move"></block>
-    </category>
-    <sep></sep>
-    <category name="🔀 ตรรกะ" colour="#5b80a5">
-      <block type="controls_if"></block><block type="logic_compare"></block><block type="logic_operation"></block>
-      <block type="logic_boolean"></block><block type="logic_negate"></block>
-    </category>
-    <category name="🔁 วนซ้ำ" colour="#5ba55b">
-      <block type="controls_repeat_ext"><value name="TIMES"><block type="math_number"><field name="NUM">10</field></block></value></block>
-      <block type="controls_whileUntil"></block>
-      <block type="controls_for">
-        <value name="FROM"><block type="math_number"><field name="NUM">1</field></block></value>
-        <value name="TO"><block type="math_number"><field name="NUM">10</field></block></value>
-        <value name="BY"><block type="math_number"><field name="NUM">1</field></block></value>
-      </block>
-    </category>
-    <category name="🔢 คณิตศาสตร์" colour="#5b67a5">
-      <block type="math_number"><field name="NUM">0</field></block><block type="math_arithmetic"></block>
-      <block type="math_modulo"></block><block type="math_random_int"></block>
-    </category>
-    <category name="📝 ข้อความ" colour="#5ba58c">
-      <block type="text"></block><block type="text_join"></block><block type="text_length"></block><block type="text_print"></block>
-    </category>
-    <category name="📦 ตัวแปร" custom="VARIABLE" colour="#a55ba5"></category>
-  </xml>
+    <!-- Main Workspace Layout -->
+    <div class="main-container">
+        <!-- Blockly Canvas -->
+        <div id="blocklyDiv"></div>
 
-  <!-- ใช้ ./ และเลขเวอร์ชันเพื่อหลีกเลี่ยงพาธผิด/ไฟล์เก่าจาก browser cache -->
-  <script src="./app.js?v=2.0.4"></script>
-  <script>
-    if (!window.KB32_STUDIO_LOADED) {
-      const box = document.getElementById("consoleBox");
-      const dot = document.getElementById("statusDot");
-      if (dot) dot.className = "error";
-      if (box) {
-        box.textContent = "โหลด app.js ไม่สำเร็จ — ตรวจว่า index.html และ app.js อยู่ในโฟลเดอร์เดียวกัน แล้วเปิดผ่าน localhost";
-      }
-    }
-  </script>
+        <!-- Right Side Panel (Code Preview & Simulation) -->
+        <div class="side-panel">
+            <div class="panel-header">
+                <span>🐍 พรีวิวโค้ด MicroPython</span>
+            </div>
+            <div class="code-box-container">
+                <textarea id="pythonCodeBox" readonly placeholder="โค้ดจะสร้างขึ้นที่นี่อัตโนมัติ..."></textarea>
+            </div>
+
+            <!-- Wokwi Simulator -->
+            <div id="simContainer">
+                <div class="panel-header">
+                    <span>⚡ หน้าต่างจำลองการทำงาน (Wokwi)</span>
+                </div>
+                <iframe src="https://wokwi.com/projects/new/esp32"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blockly Toolbox Definition -->
+    <xml id="toolbox" style="display: none">
+        <!-- Category: LED Matrix -->
+        <category name="📺 หน้าจอ LED" colour="#ff6b00">
+            <block type="kb_matrix_text">
+                <value name="TEXT">
+                    <block type="text">
+                        <field name="TEXT">Hello KidBright</field>
+                    </block>
+                </value>
+            </block>
+            <block type="kb_matrix_draw"></block>
+            <block type="kb_matrix_clear"></block>
+        </category>
+
+        <!-- Category: Sensors & Switches -->
+        <category name="🔘 สวิตช์ & เซนเซอร์" colour="#ff6b00">
+            <block type="kb_read_button"></block>
+            <block type="kb_read_light"></block>
+        </category>
+
+        <!-- Category: Buzzer & Accessories -->
+        <category name="🔊 เสียง & USB Out" colour="#ff6b00">
+            <block type="kb_buzzer"></block>
+            <block type="kb_buzzer_volume">
+                <value name="VOLUME">
+                    <block type="math_number"><field name="NUM">50</field></block>
+                </value>
+            </block>
+            <block type="kb_buzzer_freq">
+                <value name="FREQ">
+                    <block type="math_number"><field name="NUM">1000</field></block>
+                </value>
+            </block>
+            <block type="kb_usb_output"></block>
+        </category>
+
+        <!-- Category: Delay & Time -->
+        <category name="⏱️ เวลา & การหน่วง" colour="#5b80a5">
+            <block type="time_delay">
+                <value name="DELAY_TIME">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+            </block>
+        </category>
+
+        <!-- Category: Clock / RTC -->
+        <category name="⏰ นาฬิกา RTC" colour="#2b8cbe">
+            <block type="kb_rtc_sync_ntp"></block>
+            <block type="kb_rtc_get_time"></block>
+            <block type="kb_rtc_set_time"></block>
+        </category>
+
+        <!-- Category: Bluetooth BLE -->
+        <category name="📶 บลูทูธ (BLE)" colour="#8e44ad">
+            <block type="kb_ble_init">
+                <value name="NAME">
+                    <block type="text"><field name="TEXT">KidBright32</field></block>
+                </value>
+            </block>
+            <block type="kb_ble_send"></block>
+            <block type="kb_ble_read"></block>
+            <block type="kb_ble_is_connected"></block>
+        </category>
+
+        <!-- Category: WiFi & Network -->
+        <category name="🌐 WiFi & เครือข่าย" colour="#16a085">
+            <block type="kb_wifi_connect">
+                <value name="SSID">
+                    <block type="text"><field name="TEXT">WiFi_Name</field></block>
+                </value>
+                <value name="PASSWORD">
+                    <block type="text"><field name="TEXT">WiFi_Password</field></block>
+                </value>
+            </block>
+            <block type="kb_wifi_is_connected"></block>
+            <block type="kb_wifi_get_ip"></block>
+            <block type="kb_http_get"></block>
+        </category>
+
+        <!-- Category: GPIO & Servo -->
+        <category name="🔌 GPIO & เซอร์โว" colour="#a5805b">
+            <block type="digital_write"></block>
+            <block type="analog_read"></block>
+            <block type="servo_move"></block>
+        </category>
+
+        <sep></sep>
+
+        <!-- Standard Blockly Categories -->
+        <category name="🔀 ตรรกะ" colour="#5b80a5">
+            <block type="controls_if"></block>
+            <block type="logic_compare"></block>
+            <block type="logic_operation"></block>
+            <block type="logic_boolean"></block>
+            <block type="logic_negate"></block>
+        </category>
+
+        <category name="🔁 วนซ้ำ" colour="#5ba55b">
+            <block type="controls_repeat_ext">
+                <value name="TIMES">
+                    <block type="math_number"><field name="NUM">10</field></block>
+                </value>
+            </block>
+            <block type="controls_whileUntil"></block>
+            <block type="controls_for">
+                <value name="FROM">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+                <value name="TO">
+                    <block type="math_number"><field name="NUM">10</field></block>
+                </value>
+                <value name="BY">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+            </block>
+        </category>
+
+        <category name="🔢 คณิตศาสตร์" colour="#5b67a5">
+            <block type="math_number"><field name="NUM">0</field></block>
+            <block type="math_arithmetic"></block>
+            <block type="math_random_int">
+                <value name="FROM">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+                <value name="TO">
+                    <block type="math_number"><field name="NUM">100</field></block>
+                </value>
+            </block>
+        </category>
+
+        <category name="📝 ข้อความ" colour="#5ba58c">
+            <block type="text"></block>
+            <block type="text_join"></block>
+            <block type="text_length"></block>
+        </category>
+
+        <category name="📦 ตัวแปร" custom="VARIABLE" colour="#a55ba5"></category>
+    </xml>
+
+    <!-- App Logic -->
+    <script src="app.js"></script>
+
 </body>
 </html>
