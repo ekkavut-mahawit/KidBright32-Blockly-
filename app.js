@@ -622,12 +622,24 @@ function updatePythonCode() {
     if (code.includes("urequests.")) {
         headerCode += "import urequests\n";
     }
-    if (code.includes("BLEUART")) {
-        headerCode += "import ubluetooth\n";
+
+    // ฟังก์ชันช่วยเหลือสำหรับ Servo Motor
+    if (code.includes("set_servo_angle")) {
+        headerCode += "\ndef set_servo_angle(pin_num, angle):\n" +
+                      "    pwm = PWM(Pin(pin_num), freq=50)\n" +
+                      "    duty = int(25 + (angle / 180) * 100)\n" +
+                      "    pwm.duty(duty)\n";
     }
 
-    headerCode += "\n# Initialize Buzzer PWM Pin 13\n" +
-                  "buzzer_pwm = PWM(Pin(13), freq=1000, duty=0)\n\n";
+    headerCode += "\n# Initialize Hardware\n" +
+                  "buzzer_pwm = PWM(Pin(13), freq=1000, duty=0)\n" +
+                  "btn1 = Pin(16, Pin.IN, Pin.PULL_UP)\n" +
+                  "btn2 = Pin(14, Pin.IN, Pin.PULL_UP)\n" +
+                  "try:\n" +
+                  "    adc_light = ADC(Pin(36))\n" +
+                  "    adc_light.atten(ADC.ATTN_11DB)\n" +
+                  "except:\n" +
+                  "    adc_light = None\n\n";
                      
     document.getElementById("pythonCodeBox").value = headerCode + code;
 }
@@ -720,10 +732,13 @@ async function executeCode() {
         return;
     }
 
+    // ส่งโค้ดผ่าน Bluetooth (BLE)
     if (bleCharacteristic) {
         try {
             const encoder = new TextEncoder();
-            const data = encoder.encode(code + "\x04"); 
+            // ส่ง Ctrl+C ขัดจังหวะ แล้วตามด้วยโค้ด และ Ctrl+D เพื่อรัน
+            const fullPayload = "\x03\x03" + code + "\x04";
+            const data = encoder.encode(fullPayload); 
             const chunkSize = 20;
 
             for (let i = 0; i < data.length; i += chunkSize) {
@@ -739,9 +754,11 @@ async function executeCode() {
         }
     }
 
+    // ส่งโค้ดผ่าน USB Web Serial
     if (serialWriter) {
         try {
-            await serialWriter.write(code + "\x04");
+            // ส่ง Ctrl+C สองครั้งเพื่อล้างสถานะเดิม ก่อนส่งโค้ดและตามด้วย Ctrl+D
+            await serialWriter.write("\x03\x03" + code + "\x04");
             alert("🚀 ส่งโค้ดไปยังบอร์ดผ่าน USB เรียบร้อย!");
             return;
         } catch (err) {
