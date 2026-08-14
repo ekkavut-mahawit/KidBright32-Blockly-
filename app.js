@@ -22,6 +22,7 @@ class FieldMatrix16x8 extends Blockly.Field {
         this.isDrawing_ = false;
         this.drawMode_ = true;
         this.size_ = new Blockly.utils.Size(217, 137);
+        this.boundEvents_ = false;
     }
 
     static fromJson(options) {
@@ -129,6 +130,22 @@ class FieldMatrix16x8 extends Blockly.Field {
     bindEvents_() {
         super.bindEvents_();
 
+        if (this.boundEvents_) return;
+
+        this.onPointerMove_ = (e) => {
+            if (!this.isDrawing_) return;
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            if (target && target.tagName === 'circle' && target.getAttribute('data-col') !== null) {
+                const c = parseInt(target.getAttribute('data-col'));
+                const r = parseInt(target.getAttribute('data-row'));
+                this.setDot(c, r, this.drawMode_);
+            }
+        };
+
+        this.onPointerUp_ = () => {
+            this.isDrawing_ = false;
+        };
+
         this.matrixGroup_.addEventListener('pointerdown', (e) => {
             const target = e.target;
             if (target && target.tagName === 'circle') {
@@ -142,19 +159,15 @@ class FieldMatrix16x8 extends Blockly.Field {
             }
         });
 
-        document.addEventListener('pointermove', (e) => {
-            if (!this.isDrawing_) return;
-            const target = document.elementFromPoint(e.clientX, e.clientY);
-            if (target && target.tagName === 'circle' && target.getAttribute('data-col') !== null) {
-                const c = parseInt(target.getAttribute('data-col'));
-                const r = parseInt(target.getAttribute('data-row'));
-                this.setDot(c, r, this.drawMode_);
-            }
-        });
+        document.addEventListener('pointermove', this.onPointerMove_);
+        document.addEventListener('pointerup', this.onPointerUp_);
+        this.boundEvents_ = true;
+    }
 
-        document.addEventListener('pointerup', () => {
-            this.isDrawing_ = false;
-        });
+    dispose() {
+        if (this.onPointerMove_) document.removeEventListener('pointermove', this.onPointerMove_);
+        if (this.onPointerUp_) document.removeEventListener('pointerup', this.onPointerUp_);
+        super.dispose();
     }
 
     setDot(col, row, state) {
@@ -306,26 +319,25 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_read_light'] = function(block) {
-        return [`int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0`, Blockly.Python.ORDER_ATOMIC];
+        return [`(int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0)`, Blockly.Python.ORDER_ATOMIC];
     };
 
     // --- 4.3 Buzzer & Accessories ---
-Blockly.Blocks['kb_buzzer'] = {
-    init: function() {
-        this.appendDummyInput()
-            .appendField("เสียง Buzzer")
-            .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour("#ff6b00");
-    }
-};
-Blockly.Python['kb_buzzer'] = function(block) {
-    var state = block.getFieldValue('STATE');
-    // ถ้าเปิด (1) กำหนด duty = 512 (ความดัง 50%), ถ้าปิด (0) กำหนด duty = 0
-    var dutyVal = (state === "1") ? "512" : "0";
-    return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(${dutyVal})\n`;
-};
+    Blockly.Blocks['kb_buzzer'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("เสียง Buzzer")
+                .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer'] = function(block) {
+        var state = block.getFieldValue('STATE');
+        var dutyVal = (state === "1") ? "512" : "0";
+        return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(${dutyVal})\n`;
+    };
 
     Blockly.Blocks['kb_buzzer_volume'] = {
         init: function() {
@@ -399,7 +411,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
         }
     };
     Blockly.Python['kb_rtc_sync_ntp'] = function(block) {
-        return `try:\n    import ntptime\n    ntptime.settime()\n    print("NTP Sync Success")\nexcept Exception as e:\n    print("NTP Sync Failed:", e)\n`;
+        return `try:\n    import ntptime; ntptime.settime()\nexcept Exception as e:\n    print("NTP Sync Failed:", e)\n`;
     };
 
     Blockly.Blocks['kb_rtc_get_time'] = {
@@ -420,7 +432,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
     };
     Blockly.Python['kb_rtc_get_time'] = function(block) {
         var unit = block.getFieldValue('UNIT');
-        return [`machine.RTC().datetime()[${unit}]`, Blockly.Python.ORDER_ATOMIC];
+        return [`machine.RTC().datetime()[${unit}]`, Blockly.Python.ORDER_MEMBER];
     };
 
     Blockly.Blocks['kb_rtc_set_time'] = {
@@ -461,7 +473,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
     };
     Blockly.Python['kb_ble_init'] = function(block) {
         var name = Blockly.Python.valueToCode(block, 'NAME', Blockly.Python.ORDER_ATOMIC) || "'KidBright32'";
-        return `ble_uart = BLEUART(name=${name})\n`;
+        return `print("BLE Configured:", ${name})\n`;
     };
 
     Blockly.Blocks['kb_ble_send'] = {
@@ -487,7 +499,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
         }
     };
     Blockly.Python['kb_ble_read'] = function(block) {
-        return [`ble_uart.read() if 'ble_uart' in globals() and ble_uart.any() else ""`, Blockly.Python.ORDER_ATOMIC];
+        return [`(ble_uart.read() if ('ble_uart' in globals() and ble_uart.any()) else "")`, Blockly.Python.ORDER_ATOMIC];
     };
 
     Blockly.Blocks['kb_ble_is_connected'] = {
@@ -498,7 +510,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
         }
     };
     Blockly.Python['kb_ble_is_connected'] = function(block) {
-        return [`ble_uart.is_connected() if 'ble_uart' in globals() else False`, Blockly.Python.ORDER_ATOMIC];
+        return [`(ble_uart.is_connected() if 'ble_uart' in globals() else False)`, Blockly.Python.ORDER_ATOMIC];
     };
 
     // --- 4.7 WiFi Networking & HTTP Blocks ---
@@ -519,7 +531,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
     Blockly.Python['kb_wifi_connect'] = function(block) {
         var ssid = Blockly.Python.valueToCode(block, 'SSID', Blockly.Python.ORDER_ATOMIC) || "''";
         var pass = Blockly.Python.valueToCode(block, 'PASSWORD', Blockly.Python.ORDER_ATOMIC) || "''";
-        return `wlan = network.WLAN(network.STA_IF)\nwlan.active(True)\nwlan.connect(${ssid}, ${pass})\nwhile not wlan.isconnected():\n    time.sleep(0.5)\n`;
+        return `wlan = network.WLAN(network.STA_IF)\nwlan.active(True)\nwlan.connect(${ssid}, ${pass})\nwhile not wlan.isconnected(): time.sleep(0.5)\n`;
     };
 
     Blockly.Blocks['kb_wifi_is_connected'] = {
@@ -530,7 +542,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
         }
     };
     Blockly.Python['kb_wifi_is_connected'] = function(block) {
-        return [`wlan.isconnected() if 'wlan' in globals() else False`, Blockly.Python.ORDER_ATOMIC];
+        return [`(wlan.isconnected() if 'wlan' in globals() else False)`, Blockly.Python.ORDER_ATOMIC];
     };
 
     Blockly.Blocks['kb_wifi_get_ip'] = {
@@ -541,7 +553,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
         }
     };
     Blockly.Python['kb_wifi_get_ip'] = function(block) {
-        return [`wlan.ifconfig()[0] if ('wlan' in globals() and wlan.isconnected()) else "0.0.0.0"`, Blockly.Python.ORDER_ATOMIC];
+        return [`(wlan.ifconfig()[0] if ('wlan' in globals() and wlan.isconnected()) else "0.0.0.0")`, Blockly.Python.ORDER_ATOMIC];
     };
 
     Blockly.Blocks['kb_http_get'] = {
@@ -555,7 +567,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
     };
     Blockly.Python['kb_http_get'] = function(block) {
         var url = Blockly.Python.valueToCode(block, 'URL', Blockly.Python.ORDER_ATOMIC) || "''";
-        return [`urequests.get(${url}).text if 'urequests' in globals() else ""`, Blockly.Python.ORDER_ATOMIC];
+        return [`(urequests.get(${url}).text if 'urequests' in globals() else "")`, Blockly.Python.ORDER_ATOMIC];
     };
 
     // --- 4.8 GPIO / Analog / Servo Blocks ---
@@ -588,7 +600,7 @@ Blockly.Python['kb_buzzer'] = function(block) {
     };
     Blockly.Python['analog_read'] = function(block) {
         var pin = block.getFieldValue('PIN');
-        return [`ADC(Pin(${pin})).read()`, Blockly.Python.ORDER_ATOMIC];
+        return [`ADC(Pin(${pin})).read()`, Blockly.Python.ORDER_FUNCTION_CALL];
     };
 
     Blockly.Blocks['servo_move'] = {
@@ -624,20 +636,22 @@ function updatePythonCode() {
     if (code.includes("urequests.")) {
         headerCode += "import urequests\n";
     }
-    if (code.includes("BLEUART")) {
-        headerCode += "import ubluetooth\n";
-    }
 
     headerCode += "\n";
                      
     document.getElementById("pythonCodeBox").value = headerCode + code;
 }
 
-function copyPythonCode() {
+async function copyPythonCode() {
     var codeBox = document.getElementById("pythonCodeBox");
-    codeBox.select();
-    document.execCommand("copy");
-    alert("📋 คัดลอกโค้ด MicroPython เรียบร้อยแล้ว!");
+    try {
+        await navigator.clipboard.writeText(codeBox.value);
+        alert("📋 คัดลอกโค้ด MicroPython เรียบร้อยแล้ว!");
+    } catch (err) {
+        codeBox.select();
+        document.execCommand("copy");
+        alert("📋 คัดลอกโค้ดเรียบร้อย!");
+    }
 }
 
 // ==========================================
@@ -720,7 +734,7 @@ async function executeCode() {
     }
 
     if (isSimMode) {
-        copyPythonCode();
+        await copyPythonCode();
         alert("🚀 คัดลอกโค้ดเรียบร้อย! กรุณานำโค้ดไปวางในหน้าต่าง Wokwi เพื่อสั่งจำลองการทำงาน");
         return;
     }
