@@ -310,20 +310,22 @@ function registerKidBrightBlocks() {
     };
 
     // --- 4.3 Buzzer & Accessories ---
-    Blockly.Blocks['kb_buzzer'] = {
-        init: function() {
-            this.appendDummyInput()
-                .appendField("เสียง Buzzer")
-                .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour("#ff6b00");
-        }
-    };
-    Blockly.Python['kb_buzzer'] = function(block) {
-        var state = block.getFieldValue('STATE');
-        return `buzzer.value(${state})\n`;
-    };
+Blockly.Blocks['kb_buzzer'] = {
+    init: function() {
+        this.appendDummyInput()
+            .appendField("เสียง Buzzer")
+            .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
+        this.setPreviousStatement(true, null);
+        this.setNextStatement(true, null);
+        this.setColour("#ff6b00");
+    }
+};
+Blockly.Python['kb_buzzer'] = function(block) {
+    var state = block.getFieldValue('STATE');
+    // ถ้าเปิด (1) กำหนด duty = 512 (ความดัง 50%), ถ้าปิด (0) กำหนด duty = 0
+    var dutyVal = (state === "1") ? "512" : "0";
+    return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(${dutyVal})\n`;
+};
 
     Blockly.Blocks['kb_buzzer_volume'] = {
         init: function() {
