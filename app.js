@@ -241,6 +241,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     workspace.addChangeListener(updatePythonCode);
+    updatePythonCode();
     initSpeechRecognition();
 
     window.addEventListener('resize', function() {
@@ -400,11 +401,74 @@ function registerKidBrightBlocks() {
         return [`(int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0)`, Blockly.Python.ORDER_ATOMIC];
     };
 
-    // --- 4.3 Buzzer & Accessories (ครบทั้ง 4 บล็อก) ---
+    // --- 4.3 Buzzer & USB Out Accessories (สมบูรณ์ครบทุกคำสั่ง) ---
+    Blockly.Blocks['kb_buzzer_note'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("🎵 เล่นโน้ตดนตรี")
+                .appendField(new Blockly.FieldDropdown([
+                    ["โดต่ำ (C4)", "262"],
+                    ["เร (D4)", "294"],
+                    ["มี (E4)", "330"],
+                    ["ฟา (F4)", "349"],
+                    ["ซอล (G4)", "392"],
+                    ["ลา (A4)", "440"],
+                    ["ที (B4)", "494"],
+                    ["โด (C5)", "523"],
+                    ["เรสูง (D5)", "587"],
+                    ["มีสูง (E5)", "659"],
+                    ["ฟาสูง (F5)", "698"],
+                    ["ซอลสูง (G5)", "784"],
+                    ["ลาสูง (A5)", "880"],
+                    ["ทีสูง (B5)", "988"],
+                    ["โดสูงสุด (C6)", "1047"],
+                    ["หยุดพัก (Rest)", "0"]
+                ]), "NOTE")
+                .appendField("จังหวะ")
+                .appendField(new Blockly.FieldDropdown([
+                    ["1 จังหวะ (0.5 วิ)", "0.5"],
+                    ["1/2 จังหวะ (0.25 วิ)", "0.25"],
+                    ["1/4 จังหวะ (0.125 วิ)", "0.125"],
+                    ["2 จังหวะ (1.0 วิ)", "1.0"],
+                    ["4 จังหวะ (2.0 วิ)", "2.0"]
+                ]), "BEAT");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer_note'] = function(block) {
+        var note = block.getFieldValue('NOTE');
+        var beat = block.getFieldValue('BEAT');
+        return `_bz_tone(${note}, ${beat})\n`;
+    };
+
+    Blockly.Blocks['kb_buzzer_beep'] = {
+        init: function() {
+            this.appendValueInput("FREQ")
+                .setCheck("Number")
+                .appendField("🔔 ส่งเสียงบี๊บ (Beep) ความถี่");
+            this.appendValueInput("DURATION")
+                .setCheck("Number")
+                .appendField("Hz นาน");
+            this.appendDummyInput()
+                .appendField("วินาที");
+            this.setInputsInline(true);
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer_beep'] = function(block) {
+        var freq = Blockly.Python.valueToCode(block, 'FREQ', Blockly.Python.ORDER_ATOMIC) || "2400";
+        var dur = Blockly.Python.valueToCode(block, 'DURATION', Blockly.Python.ORDER_ATOMIC) || "0.2";
+        return `_bz_tone(${freq}, ${dur})\n`;
+    };
+
     Blockly.Blocks['kb_buzzer'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField("เสียง Buzzer")
+                .appendField("🔊 เสียง Buzzer")
                 .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -417,26 +481,11 @@ function registerKidBrightBlocks() {
         return `_bz_on = ${isOn}; _bz_set()\n`;
     };
 
-    Blockly.Blocks['kb_buzzer_volume'] = {
-        init: function() {
-            this.appendValueInput("VOLUME")
-                .setCheck("Number")
-                .appendField("ปรับความดัง Buzzer (0-100%)");
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour("#ff6b00");
-        }
-    };
-    Blockly.Python['kb_buzzer_volume'] = function(block) {
-        var volume = Blockly.Python.valueToCode(block, 'VOLUME', Blockly.Python.ORDER_ATOMIC) || "100";
-        return `_bz_vol = ${volume}; _bz_set()\n`;
-    };
-
     Blockly.Blocks['kb_buzzer_freq'] = {
         init: function() {
             this.appendValueInput("FREQ")
                 .setCheck("Number")
-                .appendField("ปรับความถี่เสียง Buzzer (Hz)");
+                .appendField("🎛️ ปรับความถี่เสียง Buzzer (Hz)");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour("#ff6b00");
@@ -447,10 +496,25 @@ function registerKidBrightBlocks() {
         return `_bz_freq = int(${freq}); _bz_set()\n`;
     };
 
+    Blockly.Blocks['kb_buzzer_volume'] = {
+        init: function() {
+            this.appendValueInput("VOLUME")
+                .setCheck("Number")
+                .appendField("🔉 ปรับความดัง Buzzer (0-100%)");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer_volume'] = function(block) {
+        var volume = Blockly.Python.valueToCode(block, 'VOLUME', Blockly.Python.ORDER_ATOMIC) || "100";
+        return `_bz_vol = ${volume}; _bz_set()\n`;
+    };
+
     Blockly.Blocks['kb_usb_output'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField("ช่อง USB Out")
+                .appendField("🔌 ช่อง USB Out")
                 .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
@@ -459,7 +523,25 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_usb_output'] = function(block) {
         var state = block.getFieldValue('STATE');
-        return `usb_out.value(${state})\n`;
+        return `(usb_out if 'usb_out' in globals() else Pin(25, Pin.OUT)).value(${state})\n`;
+    };
+
+    Blockly.Blocks['kb_usb_pulse'] = {
+        init: function() {
+            this.appendValueInput("DURATION")
+                .setCheck("Number")
+                .appendField("🔌 เปิดช่อง USB Out นาน");
+            this.appendDummyInput()
+                .appendField("วินาที แล้วปิด");
+            this.setInputsInline(true);
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_usb_pulse'] = function(block) {
+        var dur = Blockly.Python.valueToCode(block, 'DURATION', Blockly.Python.ORDER_ATOMIC) || "1";
+        return `_u = usb_out if 'usb_out' in globals() else Pin(25, Pin.OUT)\n_u.value(1); time.sleep(${dur}); _u.value(0)\n`;
     };
 
     // --- 4.4 Delay & Timing ---
@@ -715,22 +797,36 @@ function updatePythonCode() {
         headerCode += "import urequests\n";
     }
 
-    if (code.includes("_bz_set")) {
+    if (code.includes("_bz_")) {
         headerCode += `_bz_freq = 2400
 _bz_vol = 100
 _bz_on = False
 def _bz_set():
     global buzzer_pwm
     try:
-        if 'buzzer_pwm' in globals(): buzzer_pwm.deinit()
+        if 'buzzer_pwm' in globals() and buzzer_pwm: buzzer_pwm.deinit()
     except Exception:
         pass
     if _bz_on and _bz_vol > 0:
-        f = max(20, min(20000, int(_bz_freq)))
-        d = int(max(0, min(100, _bz_vol)) * 5.12)
+        f = max(50, min(20000, int(_bz_freq)))
+        d = int(max(1, min(100, _bz_vol)) * 5.12)
         buzzer_pwm = PWM(Pin(13), freq=f, duty=d)
     else:
         Pin(13, Pin.OUT).value(0)
+def _bz_tone(f, sec):
+    global _bz_freq, _bz_on
+    if f > 0:
+        _bz_freq = int(f)
+        _bz_on = True
+        _bz_set()
+        time.sleep(max(0.02, float(sec) - 0.02))
+        _bz_on = False
+        _bz_set()
+        time.sleep(0.02)
+    else:
+        _bz_on = False
+        _bz_set()
+        time.sleep(float(sec))
 `;
     }
 
