@@ -8,7 +8,7 @@ let serialReader = null;
 let serialReadLoopActive = false;
 
 let bleDevice = null;
-let bleRxCharacteristic = null;
+let bleCharacteristic = null;
 let bleTxCharacteristic = null;
 let isSimMode = false;
 
@@ -130,9 +130,7 @@ class FieldMatrix16x8 extends Blockly.Field {
     getValueArray() {
         let val = this.getValue();
         if (typeof val === 'string') {
-            const arr = val.split(',').map(Number);
-            while (arr.length < 16) arr.push(0);
-            return arr.slice(0, 16);
+            return val.split(',').map(Number);
         } else if (Array.isArray(val)) {
             return val;
         }
@@ -250,7 +248,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     workspace.addChangeListener(updatePythonCode);
-    updatePythonCode();
     initSpeechRecognition();
 
     window.addEventListener('resize', function() {
@@ -267,14 +264,14 @@ function registerKidBrightBlocks() {
     Blockly.Blocks['kb_voice_listen'] = {
         init: function() {
             this.appendDummyInput()
-                .appendField("🎤 รับค่าคำสั่งเสียงล่าสุด (อัปเดต)");
+                .appendField("🎤 อัปเดตการรับคำสั่งเสียง");
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour("#e11d48");
         }
     };
     Blockly.Python['kb_voice_listen'] = function(block) {
-        return `voice_update()\n`;
+        return `_voice_poll()\n`;
     };
 
     Blockly.Blocks['kb_voice_if_heard'] = {
@@ -295,7 +292,7 @@ function registerKidBrightBlocks() {
     Blockly.Python['kb_voice_if_heard'] = function(block) {
         var kw = Blockly.Python.valueToCode(block, 'KEYWORD', Blockly.Python.ORDER_ATOMIC) || "''";
         var autoClear = block.getFieldValue('CLEAR');
-        return [`voice_match(${kw}, ${autoClear})`, Blockly.Python.ORDER_FUNCTION_CALL];
+        return [`_voice_has(${kw}, ${autoClear})`, Blockly.Python.ORDER_FUNCTION_CALL];
     };
 
     Blockly.Blocks['kb_voice_get_text'] = {
@@ -307,7 +304,7 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_voice_get_text'] = function(block) {
-        return [`voice_get()`, Blockly.Python.ORDER_FUNCTION_CALL];
+        return [`_voice_text()`, Blockly.Python.ORDER_FUNCTION_CALL];
     };
 
     Blockly.Blocks['kb_voice_clear'] = {
@@ -320,7 +317,7 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_voice_clear'] = function(block) {
-        return `voice_clear()\n`;
+        return `_voice_clear()\n`;
     };
 
     Blockly.Blocks['kb_voice_speak'] = {
@@ -335,7 +332,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_voice_speak'] = function(block) {
         var text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_ATOMIC) || "''";
-        return `voice_speak(${text})\n`;
+        return `_voice_say(${text})\n`;
     };
 
     // --- 4.1 LED & Display Blocks ---
@@ -351,7 +348,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_matrix_text'] = function(block) {
         var text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_ATOMIC) || "''";
-        return `display.scroll(str(${text}))\n`;
+        return `display.scroll(${text})\n`;
     };
 
     Blockly.Blocks['kb_matrix_draw'] = {
@@ -407,7 +404,7 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_read_light'] = function(block) {
-        return [`int((4095 - adc_light.read()) / 4095 * 100)`, Blockly.Python.ORDER_ATOMIC];
+        return [`(int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0)`, Blockly.Python.ORDER_ATOMIC];
     };
 
     // --- 4.3 Buzzer & Accessories ---
@@ -424,7 +421,7 @@ function registerKidBrightBlocks() {
     Blockly.Python['kb_buzzer'] = function(block) {
         var state = block.getFieldValue('STATE');
         var dutyVal = (state === "1") ? "512" : "0";
-        return `buzzer_pwm.duty(${dutyVal})\n`;
+        return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(${dutyVal})\n`;
     };
 
     Blockly.Blocks['kb_buzzer_volume'] = {
@@ -439,7 +436,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_buzzer_volume'] = function(block) {
         var volume = Blockly.Python.valueToCode(block, 'VOLUME', Blockly.Python.ORDER_ATOMIC) || "50";
-        return `buzzer_pwm.duty(int(max(0, min(100, ${volume})) * 10.23))\n`;
+        return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(int(max(0, min(100, ${volume})) * 10.23))\n`;
     };
 
     Blockly.Blocks['kb_buzzer_freq'] = {
@@ -454,7 +451,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_buzzer_freq'] = function(block) {
         var freq = Blockly.Python.valueToCode(block, 'FREQ', Blockly.Python.ORDER_ATOMIC) || "1000";
-        return `buzzer_pwm.freq(int(${freq}))\n`;
+        return `if 'buzzer_pwm' in globals(): buzzer_pwm.freq(int(${freq}))\n`;
     };
 
     Blockly.Blocks['kb_usb_output'] = {
@@ -561,7 +558,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_ble_init'] = function(block) {
         var name = Blockly.Python.valueToCode(block, 'NAME', Blockly.Python.ORDER_ATOMIC) || "'KidBright32'";
-        return `ble_uart = BLEUART(${name})\n`;
+        return `print("BLE Configured:", ${name})\n`;
     };
 
     Blockly.Blocks['kb_ble_send'] = {
@@ -576,7 +573,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_ble_send'] = function(block) {
         var text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_ATOMIC) || "''";
-        return `if ble_uart and ble_uart.is_connected(): ble_uart.send(str(${text}) + "\\n")\n`;
+        return `if 'ble_uart' in globals() and ble_uart.is_connected(): ble_uart.send(str(${text}))\n`;
     };
 
     Blockly.Blocks['kb_ble_read'] = {
@@ -587,7 +584,7 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_ble_read'] = function(block) {
-        return [`(ble_uart.read() if (ble_uart and ble_uart.any()) else "")`, Blockly.Python.ORDER_ATOMIC];
+        return [`(ble_uart.read() if ('ble_uart' in globals() and ble_uart.any()) else "")`, Blockly.Python.ORDER_ATOMIC];
     };
 
     Blockly.Blocks['kb_ble_is_connected'] = {
@@ -598,7 +595,7 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_ble_is_connected'] = function(block) {
-        return [`(ble_uart.is_connected() if ble_uart else False)`, Blockly.Python.ORDER_ATOMIC];
+        return [`(ble_uart.is_connected() if 'ble_uart' in globals() else False)`, Blockly.Python.ORDER_ATOMIC];
     };
 
     // --- 4.7 WiFi Networking & HTTP Blocks ---
@@ -655,7 +652,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_http_get'] = function(block) {
         var url = Blockly.Python.valueToCode(block, 'URL', Blockly.Python.ORDER_ATOMIC) || "''";
-        return [`urequests.get(${url}).text`, Blockly.Python.ORDER_ATOMIC];
+        return [`(urequests.get(${url}).text if 'urequests' in globals() else "")`, Blockly.Python.ORDER_ATOMIC];
     };
 
     // --- 4.8 GPIO / Analog / Servo Blocks ---
@@ -711,209 +708,77 @@ function registerKidBrightBlocks() {
 }
 
 // ==========================================
-// 5. การสร้างโค้ด MicroPython ฉบับสมบูรณ์สำหรับ KidBright32
+// 5. การจัดการพรีวิวและคัดลอกโค้ด (คงความกระชับให้ส่ง BLE ได้เร็ว)
 // ==========================================
 function updatePythonCode() {
     if (!workspace) return;
-    var userCode = Blockly.Python.workspaceToCode(workspace);
+    var code = Blockly.Python.workspaceToCode(workspace);
 
-    var headerCode = `# Code generated for KidBright32 (MicroPython)
-import machine, time, network, sys, uselect
-from machine import Pin, ADC, PWM, RTC, I2C
-`;
+    var headerCode = "# Code generated for KidBright32 (MicroPython)\n" +
+                     "import machine, time, network\n" +
+                     "from machine import Pin, ADC, PWM, RTC\n";
 
-    if (userCode.includes("urequests.")) {
-        headerCode += `import urequests\n`;
+    if (code.includes("urequests.")) {
+        headerCode += "import urequests\n";
     }
 
-    // ประกาศฮาร์ดแวร์มาตรฐานของ KidBright32 ให้สอดคล้องกับบล็อกทั้งหมด
-    headerCode += `
-# --- KidBright32 Hardware Setup ---
-btn1 = Pin(16, Pin.IN, Pin.PULL_UP)
-btn2 = Pin(14, Pin.IN, Pin.PULL_UP)
-usb_out = Pin(25, Pin.OUT)
-buzzer_pwm = PWM(Pin(13), freq=1000, duty=0)
-adc_light = ADC(Pin(36))
-adc_light.atten(ADC.ATTN_11DB)
-
-def set_servo_angle(pin_num, angle):
-    pwm = PWM(Pin(pin_num), freq=50)
-    duty = int(((max(0, min(180, angle)) / 180.0) * 2.0 + 0.5) / 20.0 * 1023)
-    pwm.duty(duty)
-
-class KidBrightDisplay:
-    def __init__(self):
-        self.addr = 0x70
-        self.i2c = None
-        for bus, scl, sda in [(0, 22, 21), (1, 5, 4)]:
-            try:
-                _i2c = I2C(bus, scl=Pin(scl), sda=Pin(sda), freq=400000)
-                if self.addr in _i2c.scan():
-                    self.i2c = _i2c
-                    self.i2c.writeto(self.addr, b'\\x21')
-                    self.i2c.writeto(self.addr, b'\\x81')
-                    self.i2c.writeto(self.addr, b'\\xef')
-                    break
-            except Exception:
-                pass
-        self.clear()
-
-    def show_custom(self, cols):
-        if not self.i2c:
-            print("[LED Matrix]:", cols)
-            return
-        buf = bytearray(16)
-        for i in range(min(16, len(cols))):
-            buf[i] = cols[i] & 0xFF
-        self.i2c.writeto_mem(self.addr, 0x00, buf)
-
-    def clear(self):
-        self.show_custom([0]*16)
-
-    def scroll(self, text):
-        print("[LED Scroll]:", text)
-        if self.i2c:
-            # แสดงไฟวิ่งสถานะบน Matrix
-            for c in range(16):
-                arr = [0]*16
-                arr[c] = 0x3C
-                self.show_custom(arr)
-                time.sleep(0.05)
-            self.clear()
-
-display = KidBrightDisplay()
-ble_uart = None
-`;
-
-    // เพิ่มคลาส BLEUART เมื่อมีการใช้งานบล็อก BLE
-    if (userCode.includes("BLEUART")) {
-        headerCode += `
-import ubluetooth
-from micropython import const
-_IRQ_CENTRAL_CONNECT = const(1)
-_IRQ_CENTRAL_DISCONNECT = const(2)
-_IRQ_GATTS_WRITE = const(3)
-
-class BLEUART:
-    def __init__(self, name="KidBright32"):
-        self._ble = ubluetooth.BLE()
-        self._ble.active(True)
-        self._ble.irq(self._irq)
-        UART_UUID = ubluetooth.UUID("${UART_SERVICE_UUID}")
-        UART_TX = (ubluetooth.UUID("${UART_TX_CHARACTERISTIC_UUID}"), ubluetooth.FLAG_NOTIFY)
-        UART_RX = (ubluetooth.UUID("${UART_RX_CHARACTERISTIC_UUID}"), ubluetooth.FLAG_WRITE | ubluetooth.FLAG_WRITE_NO_RESPONSE)
-        ((self._tx_handle, self._rx_handle),) = self._ble.gatts_register_services(((UART_UUID, (UART_TX, UART_RX)),))
-        self._connections = set()
-        self._rx_buffer = bytearray()
-        adv = bytearray(b'\\x02\\x01\\x06') + bytearray((len(name)+1, 0x09)) + name.encode()
-        self._ble.gap_advertise(100000, adv_data=adv)
-
-    def _irq(self, event, data):
-        if event == _IRQ_CENTRAL_CONNECT:
-            self._connections.add(data[0])
-        elif event == _IRQ_CENTRAL_DISCONNECT:
-            self._connections.discard(data[0])
-            self._ble.gap_advertise(100000)
-        elif event == _IRQ_GATTS_WRITE:
-            if data[1] == self._rx_handle:
-                self._rx_buffer += self._ble.gatts_read(self._rx_handle)
-
-    def is_connected(self):
-        return len(self._connections) > 0
-
-    def any(self):
-        return len(self._rx_buffer)
-
-    def read(self):
-        data = bytes(self._rx_buffer).decode('utf-8', 'ignore')
-        self._rx_buffer = bytearray()
-        return data
-
-    def send(self, data):
-        for conn in self._connections:
-            self._ble.gatts_notify(conn, self._tx_handle, data.encode())
-`;
-    }
-
-    // เพิ่มระบบรับ-ส่งคำสั่งเสียง (Voice Command Runtime)
-    headerCode += `
-# --- Voice Command & TTS Runtime ---
-_voice_last_cmd = ""
-_serial_poll = uselect.poll()
-_serial_poll.register(sys.stdin, uselect.POLLIN)
-
-def voice_update():
-    global _voice_last_cmd
-    # 1. อ่านคำสั่งเสียงจาก USB Serial (รูปแบบ VOICE:ข้อความ)
-    while _serial_poll.poll(0):
-        line = sys.stdin.readline()
-        if line:
-            line = line.strip()
-            if line.startswith("VOICE:"):
-                _voice_last_cmd = line[6:].strip()
-    # 2. อ่านคำสั่งเสียงจาก Bluetooth BLE
-    if ble_uart and ble_uart.any():
-        raw = ble_uart.read().strip()
-        if raw.startswith("VOICE:"):
-            _voice_last_cmd = raw[6:].strip()
-        elif raw:
-            _voice_last_cmd = raw
-
-def voice_match(keyword, auto_clear=True):
-    global _voice_last_cmd
-    voice_update()
-    kw = str(keyword).strip().lower()
-    if kw and kw in _voice_last_cmd.lower():
-        if auto_clear:
-            _voice_last_cmd = ""
+    // แทรกตัวช่วยคำสั่งเสียงแบบกระชับ เฉพาะเมื่อมีการลากบล็อกคำสั่งเสียงมาใช้
+    if (code.includes("_voice_")) {
+        headerCode += `import sys, uselect
+_v_cmd = ""
+_v_poll = uselect.poll()
+_v_poll.register(sys.stdin, uselect.POLLIN)
+def _voice_poll():
+    global _v_cmd
+    if 'ble_uart' in globals() and ble_uart and ble_uart.any():
+        raw = ble_uart.read()
+        if isinstance(raw, bytes): raw = raw.decode('utf-8', 'ignore')
+        raw = raw.strip()
+        if raw.startswith("VOICE:"): _v_cmd = raw[6:].strip()
+        elif raw: _v_cmd = raw
+    while _v_poll.poll(0):
+        ln = sys.stdin.readline().strip()
+        if ln.startswith("VOICE:"): _v_cmd = ln[6:].strip()
+def _voice_has(kw, clr=True):
+    global _v_cmd
+    _voice_poll()
+    if str(kw).strip().lower() in _v_cmd.lower() and str(kw).strip() != "":
+        if clr: _v_cmd = ""
         return True
     return False
-
-def voice_get():
-    voice_update()
-    return _voice_last_cmd
-
-def voice_clear():
-    global _voice_last_cmd
-    _voice_last_cmd = ""
-
-def voice_speak(text):
-    msg = "TTS:" + str(text)
-    print(msg)
-    if ble_uart and ble_uart.is_connected():
-        ble_uart.send(msg + "\\n")
-
-# ==========================================
-# โปรแกรมหลักของผู้เรียน (User Main Program)
-# ==========================================
+def _voice_text():
+    _voice_poll()
+    return _v_cmd
+def _voice_clear():
+    global _v_cmd
+    _v_cmd = ""
+def _voice_say(t):
+    m = "TTS:" + str(t)
+    print(m)
+    if 'ble_uart' in globals() and ble_uart and ble_uart.is_connected():
+        ble_uart.send(m + "\\n")
 `;
+    }
 
-    document.getElementById("pythonCodeBox").value = headerCode + userCode;
+    headerCode += "\n";
+    document.getElementById("pythonCodeBox").value = headerCode + code;
 }
 
 async function copyPythonCode() {
     var codeBox = document.getElementById("pythonCodeBox");
     try {
         await navigator.clipboard.writeText(codeBox.value);
-        showVoiceBannerMessage("📋 คัดลอกโค้ด MicroPython เรียบร้อยแล้ว!");
+        alert("📋 คัดลอกโค้ด MicroPython เรียบร้อยแล้ว!");
     } catch (err) {
         codeBox.select();
         document.execCommand("copy");
-        showVoiceBannerMessage("📋 คัดลอกโค้ดเรียบร้อย!");
+        alert("📋 คัดลอกโค้ดเรียบร้อย!");
     }
 }
 
 // ==========================================
-// 6. ระบบเชื่อมต่อพอร์ต Serial (USB) แบบ 2 ทาง
+// 6. ระบบเชื่อมต่อพอร์ต Serial (USB)
 // ==========================================
-async function toggleUSB() {
-    if (serialPort) {
-        await disconnectUSB();
-    } else {
-        await connectUSB();
-    }
-}
-
 async function connectUSB() {
     if (!("serial" in navigator)) {
         alert("⚠️ เบราว์เซอร์ของคุณไม่รองรับ Web Serial API กรุณาใช้ Google Chrome หรือ Microsoft Edge");
@@ -924,46 +789,27 @@ async function connectUSB() {
         serialPort = await navigator.serial.requestPort();
         await serialPort.open({ baudRate: 115200 });
 
-        serialWriter = serialPort.writable.getWriter();
+        const textEncoder = new TextEncoderStream();
+        textEncoder.readable.pipeTo(serialPort.writable);
+        serialWriter = textEncoder.writable.getWriter();
+
         startSerialReadLoop();
 
         document.getElementById("usbBtn").style.backgroundColor = "#16a34a";
-        document.getElementById("usbBtn").innerText = "🔌 เชื่อมต่อ USB แล้ว (คลิกตัด)";
-        showVoiceBannerMessage("🟢 เชื่อมต่อบอร์ด KidBright32 ผ่าน USB เรียบร้อย!");
+        document.getElementById("usbBtn").innerText = "🔌 เชื่อมต่อ USB แล้ว";
+        alert("🟢 เชื่อมต่อบอร์ด KidBright32 ผ่าน USB เรียบร้อย!");
     } catch (err) {
         console.error("Error connecting USB:", err);
-        serialPort = null;
-        serialWriter = null;
+        if (serialWriter) {
+            try { serialWriter.releaseLock(); } catch(e){}
+            serialWriter = null;
+        }
         alert("❌ ไม่สามารถเชื่อมต่อ USB ได้: " + err.message);
     }
 }
 
-async function disconnectUSB() {
-    serialReadLoopActive = false;
-    try {
-        if (serialReader) {
-            await serialReader.cancel();
-            serialReader.releaseLock();
-            serialReader = null;
-        }
-        if (serialWriter) {
-            serialWriter.releaseLock();
-            serialWriter = null;
-        }
-        if (serialPort) {
-            await serialPort.close();
-            serialPort = null;
-        }
-    } catch (e) {
-        console.warn("USB disconnect warning:", e);
-    }
-    document.getElementById("usbBtn").style.backgroundColor = "#0284c7";
-    document.getElementById("usbBtn").innerText = "🔌 เสียบสาย USB";
-    showVoiceBannerMessage("🔴 ตัดการเชื่อมต่อ USB แล้ว");
-}
-
 async function startSerialReadLoop() {
-    if (!serialPort || !serialPort.readable) return;
+    if (!serialPort || !serialPort.readable || serialReadLoopActive) return;
     serialReadLoopActive = true;
     const decoder = new TextDecoder();
 
@@ -983,25 +829,19 @@ async function startSerialReadLoop() {
                 }
             }
         } catch (err) {
-            console.error("Serial read error:", err);
+            console.warn("Serial read ended:", err);
+            break;
         } finally {
             try { serialReader.releaseLock(); } catch (e) {}
             serialReader = null;
         }
     }
+    serialReadLoopActive = false;
 }
 
 // ==========================================
-// 7. ระบบเชื่อมต่อไร้สาย Bluetooth (BLE) แบบ 2 ทาง
+// 7. ระบบเชื่อมต่อไร้สาย Bluetooth (BLE) - คืนค่าเสถียรภาพตามต้นฉบับ
 // ==========================================
-async function toggleBLE() {
-    if (bleDevice && bleDevice.gatt.connected) {
-        bleDevice.gatt.disconnect();
-    } else {
-        await connectBLE();
-    }
-}
-
 async function connectBLE() {
     if (!("bluetooth" in navigator)) {
         alert("⚠️ เบราว์เซอร์ของคุณไม่รองรับ Web Bluetooth API");
@@ -1009,8 +849,9 @@ async function connectBLE() {
     }
 
     try {
+        console.log("กำลังค้นหาอุปกรณ์ BLE...");
         bleDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ namePrefix: "KidBright" }],
+            filters: [{ namePrefix: "KidBright32" }],
             optionalServices: [UART_SERVICE_UUID]
         });
 
@@ -1018,9 +859,9 @@ async function connectBLE() {
 
         const server = await bleDevice.gatt.connect();
         const service = await server.getPrimaryService(UART_SERVICE_UUID);
-        bleRxCharacteristic = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
+        bleCharacteristic = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
 
-        // เชื่อมต่อช่องรับข้อมูลจากบอร์ด (TX Notify) สำหรับ TTS
+        // เปิดรับข้อมูลตอบกลับ (TTS) แบบไม่ขัดขวางการส่งหลัก
         try {
             bleTxCharacteristic = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
             await bleTxCharacteristic.startNotifications();
@@ -1028,13 +869,13 @@ async function connectBLE() {
                 const text = new TextDecoder().decode(event.target.value).trim();
                 handleIncomingBoardMessage(text);
             });
-        } catch (e) {
-            console.warn("BLE TX Notify not available:", e);
+        } catch (notifyErr) {
+            console.log("BLE TX Notify skipped:", notifyErr);
         }
 
         document.getElementById("bleBtn").style.backgroundColor = "#16a34a";
         document.getElementById("bleBtn").innerText = "📶 เชื่อมต่อ BLE แล้ว";
-        showVoiceBannerMessage("🟢 เชื่อมต่อ Bluetooth (BLE) สำเร็จ!");
+        alert("🟢 เชื่อมต่อ Bluetooth (BLE) สำเร็จ!");
     } catch (err) {
         console.error("Error connecting BLE:", err);
         alert("❌ ไม่สามารถเชื่อมต่อ Bluetooth ได้: " + err.message);
@@ -1044,15 +885,14 @@ async function connectBLE() {
 function onBLEDisconnected() {
     document.getElementById("bleBtn").style.backgroundColor = "#9333ea";
     document.getElementById("bleBtn").innerText = "📶 บลูทูธ (BLE)";
-    bleRxCharacteristic = null;
+    bleCharacteristic = null;
     bleTxCharacteristic = null;
-    showVoiceBannerMessage("🔴 การเชื่อมต่อ Bluetooth หลุด!");
+    alert("🔴 การเชื่อมต่อ Bluetooth หลุด!");
 }
 
-// จัดการข้อความที่บอร์ดส่งกลับมา (เช่น สั่งให้เว็บพูด TTS)
+// รับข้อความจากบอร์ด (เช่น TTS:ข้อความ) เพื่อพูดออกลำโพงคอมพิวเตอร์
 function handleIncomingBoardMessage(line) {
     if (!line) return;
-    console.log("[KidBright32]:", line);
     if (line.startsWith("TTS:")) {
         const textToSpeak = line.substring(4).trim();
         speakThai(textToSpeak);
@@ -1073,14 +913,14 @@ async function executeCode() {
 
     if (isSimMode) {
         await copyPythonCode();
-        alert("🚀 คัดลอกโค้ดเรียบร้อย! กรุณานำโค้ดไปวางในหน้าต่าง Wokwi (main.py) แล้วกดปุ่ม Play สีเขียว");
+        alert("🚀 คัดลอกโค้ดเรียบร้อย! กรุณานำโค้ดไปวางในหน้าต่าง Wokwi เพื่อสั่งจำลองการทำงาน");
         return;
     }
 
-    if (bleRxCharacteristic) {
+    if (bleCharacteristic) {
         try {
-            await sendTextOverBLE(code + "\x04");
-            showVoiceBannerMessage("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายสำเร็จ!");
+            await sendChunkedBLE(code + "\x04");
+            alert("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายสำเร็จ!");
             return;
         } catch (err) {
             alert("❌ ส่งโค้ดผ่าน Bluetooth ล้มเหลว: " + err.message);
@@ -1090,18 +930,8 @@ async function executeCode() {
 
     if (serialWriter) {
         try {
-            const encoder = new TextEncoder();
-            // เข้าสู่โหมด Raw REPL (\x03\x03\x01) -> ส่งโค้ด -> รัน (\x04) -> กลับ Normal REPL (\x02)
-            await serialWriter.write(encoder.encode("\x03\x03"));
-            await new Promise(r => setTimeout(r, 80));
-            await serialWriter.write(encoder.encode("\x01"));
-            await new Promise(r => setTimeout(r, 80));
-            await serialWriter.write(encoder.encode(code));
-            await serialWriter.write(encoder.encode("\x04"));
-            await new Promise(r => setTimeout(r, 80));
-            await serialWriter.write(encoder.encode("\x02"));
-
-            showVoiceBannerMessage("🚀 ส่งโค้ดไปยังบอร์ดผ่าน USB เรียบร้อย!");
+            await serialWriter.write(code + "\x04");
+            alert("🚀 ส่งโค้ดไปยังบอร์ดผ่าน USB เรียบร้อย!");
             return;
         } catch (err) {
             alert("❌ ส่งโค้ดผ่าน USB ล้มเหลว: " + err.message);
@@ -1112,20 +942,20 @@ async function executeCode() {
     alert("⚠️ กรุณาเชื่อมต่อ USB หรือ Bluetooth (BLE) ก่อนกดส่งโค้ด!");
 }
 
-async function sendTextOverBLE(text) {
-    if (!bleRxCharacteristic) return;
+// ส่งข้อมูลผ่าน BLE แบบแบ่งแพ็กเก็ต 20 ไบต์ (รองรับทั้งโค้ดและคำสั่งเสียงภาษาไทย)
+async function sendChunkedBLE(text) {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
     const chunkSize = 20;
 
     for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
-        if (bleRxCharacteristic.writeValueWithoutResponse) {
-            await bleRxCharacteristic.writeValueWithoutResponse(chunk);
+        if (bleCharacteristic.writeValueWithoutResponse) {
+            await bleCharacteristic.writeValueWithoutResponse(chunk);
         } else {
-            await bleRxCharacteristic.writeValue(chunk);
+            await bleCharacteristic.writeValue(chunk);
         }
-        await new Promise(r => setTimeout(r, 25));
+        await new Promise(r => setTimeout(r, 30));
     }
 }
 
@@ -1146,7 +976,7 @@ function toggleMode() {
         modeBtn.style.backgroundColor = "#f59e0b";
         simContainer.style.display = "none";
     }
-    
+
     setTimeout(() => {
         Blockly.svgResize(workspace);
     }, 100);
@@ -1157,10 +987,7 @@ function toggleMode() {
 // ==========================================
 function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        console.warn("เบราว์เซอร์นี้ไม่รองรับ SpeechRecognition");
-        return;
-    }
+    if (!SpeechRecognition) return;
 
     recognition = new SpeechRecognition();
     recognition.lang = 'th-TH';
@@ -1196,7 +1023,6 @@ function initSpeechRecognition() {
     };
 
     recognition.onerror = (event) => {
-        console.warn("Speech recognition error:", event.error);
         if (event.error === 'not-allowed') {
             isVoiceListening = false;
             updateVoiceUI(false);
@@ -1205,11 +1031,8 @@ function initSpeechRecognition() {
     };
 
     recognition.onend = () => {
-        // เปิดการฟังต่อเนื่องอัตโนมัติหากผู้ใช้ยังไม่ได้กดปิด
         if (isVoiceListening) {
-            try {
-                recognition.start();
-            } catch (e) {}
+            try { recognition.start(); } catch (e) {}
         } else {
             updateVoiceUI(false);
         }
@@ -1228,17 +1051,15 @@ function toggleVoiceRecognition() {
         updateVoiceUI(false);
     } else {
         isVoiceListening = true;
-        try {
-            recognition.start();
-        } catch (e) {
-            console.warn(e);
-        }
+        try { recognition.start(); } catch (e) {}
     }
 }
 
 function updateVoiceUI(active) {
     const btn = document.getElementById("voiceBtn");
     const bar = document.getElementById("voiceStatusBar");
+    if (!btn || !bar) return;
+
     if (active) {
         btn.classList.add("listening");
         btn.innerText = "🎤 กำลังฟังเสียง...";
@@ -1253,62 +1074,57 @@ function updateVoiceUI(active) {
 function showVoiceBannerMessage(msg) {
     const bar = document.getElementById("voiceStatusBar");
     const txt = document.getElementById("voiceTranscriptText");
-    bar.classList.add("active");
-    txt.innerText = msg;
+    if (bar && txt) {
+        bar.classList.add("active");
+        txt.innerText = msg;
+    }
 }
 
-// ฟังก์ชันพูดออกเสียงภาษาไทย (Text-to-Speech)
 function speakThai(text) {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'th-TH';
-    utterance.rate = 1.0;
     window.speechSynthesis.speak(utterance);
 }
 
-// ประมวลผลคำสั่งเสียงตามโหมดที่เลือก
 async function processVoiceCommand(command) {
-    const mode = document.getElementById("voiceModeSelect").value;
+    const modeEl = document.getElementById("voiceModeSelect");
+    const mode = modeEl ? modeEl.value : "bridge";
     const cleanCmd = command.replace(/\s+/g, ' ').trim();
 
     if (mode === "bridge") {
-        // โหมดที่ 1: ส่งคำสั่งเสียงตรงไปยังบอร์ด KidBright32
         await sendVoicePayloadToBoard(cleanCmd);
     } else {
-        // โหมดที่ 2: สั่งควบคุมเว็บแอป & สร้างบล็อก Blockly อัตโนมัติ
         executeVoiceToBlockAndApp(cleanCmd);
     }
 }
 
 async function sendVoicePayloadToBoard(text) {
     const payload = `VOICE:${text}\n`;
-    document.getElementById("voiceTranscriptText").innerText = `📤 ส่งคำสั่งเสียง: "${text}"`;
+    showVoiceBannerMessage(`📤 ส่งคำสั่งเสียง: "${text}"`);
 
-    if (serialWriter) {
+    if (bleCharacteristic) {
         try {
-            const encoder = new TextEncoder();
-            await serialWriter.write(encoder.encode(payload));
-            return;
-        } catch (e) {
-            console.error("Failed sending voice via USB:", e);
-        }
-    }
-
-    if (bleRxCharacteristic) {
-        try {
-            await sendTextOverBLE(payload);
+            await sendChunkedBLE(payload);
             return;
         } catch (e) {
             console.error("Failed sending voice via BLE:", e);
         }
     }
 
-    document.getElementById("voiceTranscriptText").innerText =
-        `⚠️ ได้ยินคำว่า "${text}" (กรุณาเชื่อมต่อ USB หรือ BLE เพื่อส่งเข้าบอร์ด)`;
+    if (serialWriter) {
+        try {
+            await serialWriter.write(payload);
+            return;
+        } catch (e) {
+            console.error("Failed sending voice via USB:", e);
+        }
+    }
+
+    showVoiceBannerMessage(`⚠️ ได้ยินคำว่า "${text}" (กรุณาเชื่อมต่อ USB หรือ BLE เพื่อส่งเข้าบอร์ด)`);
 }
 
-// ปุ่มทดสอบส่งคำสั่งเสียง (กรณีไม่มีไมโครโฟน)
 async function testVoiceCommand() {
     const sample = prompt("พิมพ์ข้อความจำลองคำสั่งเสียง (เช่น เปิดไฟ, ปิดไฟ, สวัสดี):", "เปิดไฟ");
     if (sample && sample.trim() !== "") {
@@ -1316,7 +1132,6 @@ async function testVoiceCommand() {
     }
 }
 
-// สั่งสร้างบล็อกและควบคุมเว็บด้วยเสียง
 function executeVoiceToBlockAndApp(cmd) {
     if (cmd.includes("ส่งโค้ด") || cmd.includes("รันโค้ด") || cmd.includes("ทำงาน")) {
         executeCode();
@@ -1347,7 +1162,6 @@ function executeVoiceToBlockAndApp(cmd) {
         return;
     }
 
-    // สร้างบล็อกลง Workspace อัตโนมัติ
     if (cmd.startsWith("แสดงข้อความ")) {
         const msg = cmd.replace("แสดงข้อความ", "").trim() || "Hello";
         const block = workspace.newBlock('kb_matrix_text');
@@ -1362,8 +1176,7 @@ function executeVoiceToBlockAndApp(cmd) {
     }
 
     if (cmd.includes("ล้างหน้าจอ")) {
-        const block = workspace.newBlock('kb_matrix_clear');
-        appendBlockToWorkspace(block);
+        appendBlockToWorkspace(workspace.newBlock('kb_matrix_clear'));
         speakThai("เพิ่มบล็อกล้างหน้าจอ");
         return;
     }
@@ -1414,18 +1227,15 @@ function executeVoiceToBlockAndApp(cmd) {
         return;
     }
 
-    document.getElementById("voiceTranscriptText").innerText =
-        `❓ ไม่พบคำสั่งสร้างบล็อกสำหรับ "${cmd}" (ลองพูด: แสดงข้อความ..., เปิดเสียง, ปิดเสียง, หน่วงเวลา 2 วินาที)`;
+    showVoiceBannerMessage(`❓ ไม่พบคำสั่งสร้างบล็อกสำหรับ "${cmd}"`);
 }
 
-// ฟังก์ชันต่อบล็อกใหม่เข้ากับบล็อกสุดท้ายบน Workspace
 function appendBlockToWorkspace(newBlock) {
     newBlock.initSvg();
     newBlock.render();
 
     const topBlocks = workspace.getTopBlocks(true);
     if (topBlocks.length > 1) {
-        // หาบล็อกสุดท้ายในสายโซ่แรก
         let lastBlock = topBlocks[0];
         if (lastBlock.id === newBlock.id) lastBlock = topBlocks[1];
         while (lastBlock.getNextBlock()) {
