@@ -803,9 +803,6 @@ function registerKidBrightBlocks() {
     };
 }
 
-// ==========================================
-// 5. การจัดการพรีวิวและคัดลอกโค้ด
-// ==========================================
 function updatePythonCode() {
     if (!workspace) return;
     var code = Blockly.Python.workspaceToCode(workspace);
@@ -822,32 +819,32 @@ function updatePythonCode() {
         headerCode += `_bz_freq = 2400
 _bz_vol = 100
 _bz_on = False
+buzzer_pwm = PWM(Pin(13))
+buzzer_pwm.duty(0)
 def _bz_set():
-    global buzzer_pwm
-    try:
-        if 'buzzer_pwm' in globals() and buzzer_pwm: buzzer_pwm.deinit()
-    except Exception:
-        pass
     if _bz_on and _bz_vol > 0:
         f = max(50, min(20000, int(_bz_freq)))
-        d = int(max(1, min(100, _bz_vol)) * 5.12)
-        buzzer_pwm = PWM(Pin(13), freq=f, duty=d)
+        d = int(max(1, min(100, _bz_vol)) * 2.56)
+        buzzer_pwm.freq(f)
+        buzzer_pwm.duty(d)
     else:
-        Pin(13, Pin.OUT).value(0)
+        buzzer_pwm.duty(0)
 def _bz_tone(f, sec):
     global _bz_freq, _bz_on
+    sec = float(sec)
     if f > 0:
         _bz_freq = int(f)
         _bz_on = True
         _bz_set()
-        time.sleep(max(0.02, float(sec) - 0.02))
+        gap = min(0.04, sec * 0.12)
+        time.sleep(max(0.02, sec - gap))
         _bz_on = False
         _bz_set()
-        time.sleep(0.02)
+        time.sleep(gap)
     else:
         _bz_on = False
         _bz_set()
-        time.sleep(float(sec))
+        time.sleep(sec)
 `;
     }
 
