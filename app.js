@@ -400,7 +400,7 @@ function registerKidBrightBlocks() {
         return [`(int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0)`, Blockly.Python.ORDER_ATOMIC];
     };
 
-   // --- 4.3 Buzzer & Accessories ---
+    // --- 4.3 Buzzer & Accessories (ครบทั้ง 4 บล็อก) ---
     Blockly.Blocks['kb_buzzer'] = {
         init: function() {
             this.appendDummyInput()
@@ -446,6 +446,22 @@ function registerKidBrightBlocks() {
         var freq = Blockly.Python.valueToCode(block, 'FREQ', Blockly.Python.ORDER_ATOMIC) || "2400";
         return `_bz_freq = int(${freq}); _bz_set()\n`;
     };
+
+    Blockly.Blocks['kb_usb_output'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("ช่อง USB Out")
+                .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_usb_output'] = function(block) {
+        var state = block.getFieldValue('STATE');
+        return `usb_out.value(${state})\n`;
+    };
+
     // --- 4.4 Delay & Timing ---
     Blockly.Blocks['time_delay'] = {
         init: function() {
@@ -699,20 +715,22 @@ function updatePythonCode() {
         headerCode += "import urequests\n";
     }
 
-    // ตัวควบคุม Buzzer ให้ความถี่ตรงทุกโน้ต และปรับ duty 0-512 (50% square wave) เพื่อเสียงดังสูงสุด
     if (code.includes("_bz_set")) {
         headerCode += `_bz_freq = 2400
 _bz_vol = 100
 _bz_on = False
 def _bz_set():
     global buzzer_pwm
-    f = max(20, min(20000, int(_bz_freq)))
-    d = int(max(0, min(100, _bz_vol)) * 5.12) if _bz_on else 0
     try:
         if 'buzzer_pwm' in globals(): buzzer_pwm.deinit()
     except Exception:
         pass
-    buzzer_pwm = PWM(Pin(13), freq=f, duty=d)
+    if _bz_on and _bz_vol > 0:
+        f = max(20, min(20000, int(_bz_freq)))
+        d = int(max(0, min(100, _bz_vol)) * 5.12)
+        buzzer_pwm = PWM(Pin(13), freq=f, duty=d)
+    else:
+        Pin(13, Pin.OUT).value(0)
 `;
     }
 
@@ -753,6 +771,7 @@ def _voice_say(t):
     headerCode += "\n";
     document.getElementById("pythonCodeBox").value = headerCode + code;
 }
+
 async function copyPythonCode() {
     var codeBox = document.getElementById("pythonCodeBox");
     try {
@@ -796,7 +815,7 @@ async function connectUSB() {
 }
 
 // ==========================================
-// 7. ระบบเชื่อมต่อไร้สาย Bluetooth (BLE) - เหมือนต้นฉบับ 100%
+// 7. ระบบเชื่อมต่อไร้สาย Bluetooth (BLE)
 // ==========================================
 async function connectBLE() {
     if (!("bluetooth" in navigator)) {
