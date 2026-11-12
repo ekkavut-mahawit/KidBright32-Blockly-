@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KidBright32 Block Coding - โรงเรียนมหาชนะชัยวิทยาคม</title>
     
-    <!-- ล็อกเวอร์ชัน Blockly 9.3.3 เพื่อเสถียรภาพ -->
+    <!-- 📌 ล็อกเวอร์ชัน Blockly 9.3.3 เพื่อเสถียรภาพ -->
     <script src="https://unpkg.com/blockly@9.3.3/blockly.min.js"></script>
+    <script src="https://unpkg.com/blockly@9.3.3/blocks_compressed.js"></script>
     <script src="https://unpkg.com/blockly@9.3.3/python_compressed.js"></script>
     <script src="https://unpkg.com/blockly@9.3.3/msg/th.js"></script>
 
@@ -35,7 +36,7 @@
 
         .controls { display: flex; gap: clamp(4px, 0.8vw, 8px); align-items: center; flex-wrap: wrap; }
         .btn { 
-            padding: clamp(6px, 1vh, 9px) clamp(10px, 1.1vw, 14px); 
+            padding: clamp(6px, 1vh, 10px) clamp(10px, 1.1vw, 14px); 
             border: none; border-radius: 6px; font-weight: bold; 
             font-size: clamp(0.75rem, 1.05vw, 0.88rem); cursor: pointer; 
             transition: all 0.2s ease; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -44,10 +45,7 @@
         .btn-usb { background-color: #0284c7; color: white; }
         .btn-ble { background-color: #9333ea; color: white; }
         .btn-voice { background-color: #e11d48; color: white; }
-        .btn-voice.listening { 
-            background-color: #16a34a; 
-            animation: pulseVoice 1.4s infinite; 
-        }
+        .btn-voice.listening { background-color: #16a34a; animation: pulseVoice 1.4s infinite; }
         .btn-toggle { background-color: #f59e0b; color: white; }
         .btn-run { background-color: #28a745; color: white; }
         .btn-run:hover { background-color: #218838; }
@@ -64,35 +62,26 @@
             100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
         }
 
-        /* แถบแสดงสถานะคำสั่งเสียงแบบ Real-time */
         .voice-banner {
-            display: none;
-            background: #0f172a;
-            color: #f8fafc;
-            padding: 6px 16px;
-            font-size: 0.85rem;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #334155;
-            gap: 10px;
+            display: none; background: #0f172a; color: #f8fafc;
+            padding: 6px 16px; font-size: 0.85rem;
+            align-items: center; justify-content: space-between;
+            border-bottom: 1px solid #334155; gap: 10px;
         }
         .voice-banner.active { display: flex; }
         .voice-badge {
             background: #e11d48; color: white; padding: 2px 8px;
             border-radius: 999px; font-size: 0.75rem; font-weight: bold;
         }
-        #voiceTranscriptText {
-            color: #38bdf8; font-weight: bold; margin-left: 6px;
-        }
+        #voiceTranscriptText { color: #38bdf8; font-weight: bold; margin-left: 6px; }
 
         .main-container { 
             display: flex; flex: 1; width: 100%; height: 0; min-height: 0; position: relative; 
         }
         #blocklyDiv { flex: 1; height: 100%; touch-action: none; background-color: #ffffff; min-width: 0; }
 
-        /* Side Panel Styling */
         .side-panel {
-            width: 390px; max-width: 45%; height: 100%; background: #1e1e1e;
+            width: 380px; max-width: 45%; height: 100%; background: #1e1e1e;
             border-left: 2px solid #cbd5e1; display: flex; flex-direction: column;
         }
 
@@ -114,7 +103,7 @@
         #pythonCodeBox {
             flex: 1; width: 100%; background: #121212; color: #00ff66; border: 1px solid #333;
             border-radius: 4px; padding: 10px; font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 0.82rem; resize: none; outline: none; white-space: pre; line-height: 1.4;
+            font-size: 0.85rem; resize: none; outline: none; white-space: pre; line-height: 1.4;
         }
         
         #simContainer { 
@@ -141,13 +130,13 @@
             <div class="header-info">
                 <div class="school-name">โรงเรียนมหาชนะชัยวิทยาคม</div>
                 <div class="teacher-name">ครูผู้สอน: ครูเอกวัฒน์ ทาศรีภู</div>
-                <div class="app-title">🤖 ระบบเรียนรู้ KidBright32 Block Coding & Voice AI (MicroPython)</div>
+                <div class="app-title">🤖 ระบบเรียนรู้ KidBright32 Block Coding (MicroPython)</div>
             </div>
         </div>
 
         <div class="controls">
-            <button class="btn btn-usb" id="usbBtn" onclick="toggleUSB()">🔌 เสียบสาย USB</button>
-            <button class="btn btn-ble" id="bleBtn" onclick="toggleBLE()">📶 บลูทูธ (BLE)</button>
+            <button class="btn btn-usb" id="usbBtn" onclick="connectUSB()">🔌 เสียบสาย USB</button>
+            <button class="btn btn-ble" id="bleBtn" onclick="connectBLE()">📶 บลูทูธ (BLE)</button>
             <button class="btn btn-voice" id="voiceBtn" onclick="toggleVoiceRecognition()">🎤 คำสั่งเสียง: ปิด</button>
             <select id="voiceModeSelect" class="voice-select" title="เลือกโหมดการทำงานของคำสั่งเสียง">
                 <option value="bridge">โหมดเสียง: ส่งเข้าบอร์ด</option>
@@ -158,11 +147,11 @@
         </div>
     </header>
 
-    <!-- แถบแสดงผลข้อความเสียงพูด -->
+    <!-- แถบสถานะคำสั่งเสียง -->
     <div id="voiceStatusBar" class="voice-banner">
         <div>
-            <span class="voice-badge">🎙️ กำลังฟังเสียง (ไทย)...</span>
-            <span id="voiceTranscriptText">พูดคำสั่งได้เลย เช่น "เปิดไฟ", "ปิดไฟ", "สวัสดี"</span>
+            <span class="voice-badge">🎙️ ระบบเสียง</span>
+            <span id="voiceTranscriptText">พร้อมรับคำสั่งเสียงภาษาไทย...</span>
         </div>
         <button class="btn-copy" style="background:#475569;" onclick="testVoiceCommand()">🧪 ทดสอบส่งคำสั่งเสียง</button>
     </div>
@@ -185,28 +174,28 @@
             <!-- Wokwi Simulator -->
             <div id="simContainer">
                 <div class="panel-header" style="padding: 6px 10px; background: #0f172a; color: #38bdf8;">
-                    <span>⚡ หน้าต่างจำลองการทำงาน (Wokwi MicroPython)</span>
+                    <span>⚡ หน้าต่างจำลองการทำงาน (Wokwi)</span>
                 </div>
-                <iframe id="simFrame" src="https://wokwi.com/projects/new/micropython-esp32"></iframe>
+                <iframe id="simFrame" src="https://wokwi.com/projects/new/esp32"></iframe>
             </div>
         </div>
     </div>
 
     <!-- Blockly Toolbox Definition -->
     <xml id="toolbox" style="display: none">
-        <!-- Category: Voice Command System (ใหม่) -->
-        <category name="🎤 คำสั่งเสียง (Voice)" colour="#e11d48">
+        <!-- Category: Voice Command System -->
+        <category name="🎤 คำสั่งเสียง" colour="#e11d48">
             <block type="kb_voice_listen"></block>
             <block type="kb_voice_if_heard">
                 <value name="KEYWORD">
-                    <shadow type="text"><field name="TEXT">เปิดไฟ</field></shadow>
+                    <block type="text"><field name="TEXT">เปิดไฟ</field></block>
                 </value>
             </block>
             <block type="kb_voice_get_text"></block>
             <block type="kb_voice_clear"></block>
             <block type="kb_voice_speak">
                 <value name="TEXT">
-                    <shadow type="text"><field name="TEXT">รับทราบคำสั่งครับ</field></shadow>
+                    <block type="text"><field name="TEXT">รับทราบคำสั่งครับ</field></block>
                 </value>
             </block>
         </category>
@@ -215,9 +204,9 @@
         <category name="📺 หน้าจอ LED" colour="#ff6b00">
             <block type="kb_matrix_text">
                 <value name="TEXT">
-                    <shadow type="text">
+                    <block type="text">
                         <field name="TEXT">Hello KidBright</field>
-                    </shadow>
+                    </block>
                 </value>
             </block>
             <block type="kb_matrix_draw"></block>
@@ -235,12 +224,12 @@
             <block type="kb_buzzer"></block>
             <block type="kb_buzzer_volume">
                 <value name="VOLUME">
-                    <shadow type="math_number"><field name="NUM">50</field></shadow>
+                    <block type="math_number"><field name="NUM">50</field></block>
                 </value>
             </block>
             <block type="kb_buzzer_freq">
                 <value name="FREQ">
-                    <shadow type="math_number"><field name="NUM">1000</field></shadow>
+                    <block type="math_number"><field name="NUM">1000</field></block>
                 </value>
             </block>
             <block type="kb_usb_output"></block>
@@ -250,7 +239,7 @@
         <category name="⏱️ เวลา & การหน่วง" colour="#5b80a5">
             <block type="time_delay">
                 <value name="DELAY_TIME">
-                    <shadow type="math_number"><field name="NUM">1</field></shadow>
+                    <block type="math_number"><field name="NUM">1</field></block>
                 </value>
             </block>
         </category>
@@ -259,28 +248,17 @@
         <category name="⏰ นาฬิกา RTC" colour="#2b8cbe">
             <block type="kb_rtc_sync_ntp"></block>
             <block type="kb_rtc_get_time"></block>
-            <block type="kb_rtc_set_time">
-                <value name="YEAR"><shadow type="math_number"><field name="NUM">2026</field></shadow></value>
-                <value name="MONTH"><shadow type="math_number"><field name="NUM">11</field></shadow></value>
-                <value name="DAY"><shadow type="math_number"><field name="NUM">12</field></shadow></value>
-                <value name="HOUR"><shadow type="math_number"><field name="NUM">12</field></shadow></value>
-                <value name="MINUTE"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-                <value name="SECOND"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
-            </block>
+            <block type="kb_rtc_set_time"></block>
         </category>
 
         <!-- Category: Bluetooth BLE -->
         <category name="📶 บลูทูธ (BLE)" colour="#8e44ad">
             <block type="kb_ble_init">
                 <value name="NAME">
-                    <shadow type="text"><field name="TEXT">KidBright32</field></shadow>
+                    <block type="text"><field name="TEXT">KidBright32</field></block>
                 </value>
             </block>
-            <block type="kb_ble_send">
-                <value name="TEXT">
-                    <shadow type="text"><field name="TEXT">Hello BLE</field></shadow>
-                </value>
-            </block>
+            <block type="kb_ble_send"></block>
             <block type="kb_ble_read"></block>
             <block type="kb_ble_is_connected"></block>
         </category>
@@ -289,19 +267,15 @@
         <category name="🌐 WiFi & เครือข่าย" colour="#16a085">
             <block type="kb_wifi_connect">
                 <value name="SSID">
-                    <shadow type="text"><field name="TEXT">WiFi_Name</field></shadow>
+                    <block type="text"><field name="TEXT">WiFi_Name</field></block>
                 </value>
                 <value name="PASSWORD">
-                    <shadow type="text"><field name="TEXT">WiFi_Password</field></shadow>
+                    <block type="text"><field name="TEXT">WiFi_Password</field></block>
                 </value>
             </block>
             <block type="kb_wifi_is_connected"></block>
             <block type="kb_wifi_get_ip"></block>
-            <block type="kb_http_get">
-                <value name="URL">
-                    <shadow type="text"><field name="TEXT">http://example.com</field></shadow>
-                </value>
-            </block>
+            <block type="kb_http_get"></block>
         </category>
 
         <!-- Category: GPIO & Servo -->
@@ -325,14 +299,20 @@
         <category name="🔁 วนซ้ำ" colour="#5ba55b">
             <block type="controls_repeat_ext">
                 <value name="TIMES">
-                    <shadow type="math_number"><field name="NUM">10</field></shadow>
+                    <block type="math_number"><field name="NUM">10</field></block>
                 </value>
             </block>
             <block type="controls_whileUntil"></block>
             <block type="controls_for">
-                <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-                <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
-                <value name="BY"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                <value name="FROM">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+                <value name="TO">
+                    <block type="math_number"><field name="NUM">10</field></block>
+                </value>
+                <value name="BY">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
             </block>
         </category>
 
@@ -340,8 +320,12 @@
             <block type="math_number"><field name="NUM">0</field></block>
             <block type="math_arithmetic"></block>
             <block type="math_random_int">
-                <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
-                <value name="TO"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+                <value name="FROM">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+                <value name="TO">
+                    <block type="math_number"><field name="NUM">100</field></block>
+                </value>
             </block>
         </category>
 
