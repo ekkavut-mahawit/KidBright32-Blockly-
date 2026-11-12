@@ -802,7 +802,6 @@ function registerKidBrightBlocks() {
         return `set_servo_angle(${pin}, ${angle})\n`;
     };
 }
-
 function updatePythonCode() {
     if (!workspace) return;
     var code = Blockly.Python.workspaceToCode(workspace);
@@ -819,16 +818,21 @@ function updatePythonCode() {
         headerCode += `_bz_freq = 2400
 _bz_vol = 100
 _bz_on = False
-buzzer_pwm = PWM(Pin(13))
-buzzer_pwm.duty(0)
+buzzer_pwm = None
 def _bz_set():
+    global buzzer_pwm
+    try:
+        if buzzer_pwm is not None:
+            buzzer_pwm.deinit()
+            buzzer_pwm = None
+    except Exception:
+        buzzer_pwm = None
     if _bz_on and _bz_vol > 0:
         f = max(50, min(20000, int(_bz_freq)))
-        d = int(max(1, min(100, _bz_vol)) * 2.56)
-        buzzer_pwm.freq(f)
-        buzzer_pwm.duty(d)
+        d = int(max(1, min(100, _bz_vol)) * 3.5)
+        buzzer_pwm = PWM(Pin(13), freq=f, duty=d)
     else:
-        buzzer_pwm.duty(0)
+        Pin(13, Pin.OUT).value(0)
 def _bz_tone(f, sec):
     global _bz_freq, _bz_on
     sec = float(sec)
