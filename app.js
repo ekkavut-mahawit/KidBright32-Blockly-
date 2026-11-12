@@ -400,7 +400,7 @@ function registerKidBrightBlocks() {
         return [`(int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0)`, Blockly.Python.ORDER_ATOMIC];
     };
 
-    // --- 4.3 Buzzer & Accessories ---
+   // --- 4.3 Buzzer & Accessories ---
     Blockly.Blocks['kb_buzzer'] = {
         init: function() {
             this.appendDummyInput()
@@ -413,8 +413,8 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_buzzer'] = function(block) {
         var state = block.getFieldValue('STATE');
-        var dutyVal = (state === "1") ? "512" : "0";
-        return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(${dutyVal})\n`;
+        var isOn = (state === "1") ? "True" : "False";
+        return `_bz_on = ${isOn}; _bz_set()\n`;
     };
 
     Blockly.Blocks['kb_buzzer_volume'] = {
@@ -428,8 +428,8 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_buzzer_volume'] = function(block) {
-        var volume = Blockly.Python.valueToCode(block, 'VOLUME', Blockly.Python.ORDER_ATOMIC) || "50";
-        return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(int(max(0, min(100, ${volume})) * 10.23))\n`;
+        var volume = Blockly.Python.valueToCode(block, 'VOLUME', Blockly.Python.ORDER_ATOMIC) || "100";
+        return `_bz_vol = ${volume}; _bz_set()\n`;
     };
 
     Blockly.Blocks['kb_buzzer_freq'] = {
@@ -443,25 +443,9 @@ function registerKidBrightBlocks() {
         }
     };
     Blockly.Python['kb_buzzer_freq'] = function(block) {
-        var freq = Blockly.Python.valueToCode(block, 'FREQ', Blockly.Python.ORDER_ATOMIC) || "1000";
-        return `if 'buzzer_pwm' in globals(): buzzer_pwm.freq(int(${freq}))\n`;
+        var freq = Blockly.Python.valueToCode(block, 'FREQ', Blockly.Python.ORDER_ATOMIC) || "2400";
+        return `_bz_freq = int(${freq}); _bz_set()\n`;
     };
-
-    Blockly.Blocks['kb_usb_output'] = {
-        init: function() {
-            this.appendDummyInput()
-                .appendField("ช่อง USB Out")
-                .appendField(new Blockly.FieldDropdown([["เปิด (ON)", "1"], ["ปิด (OFF)", "0"]]), "STATE");
-            this.setPreviousStatement(true, null);
-            this.setNextStatement(true, null);
-            this.setColour("#ff6b00");
-        }
-    };
-    Blockly.Python['kb_usb_output'] = function(block) {
-        var state = block.getFieldValue('STATE');
-        return `usb_out.value(${state})\n`;
-    };
-
     // --- 4.4 Delay & Timing ---
     Blockly.Blocks['time_delay'] = {
         init: function() {
@@ -715,6 +699,23 @@ function updatePythonCode() {
         headerCode += "import urequests\n";
     }
 
+    // ตัวควบคุม Buzzer ให้ความถี่ตรงทุกโน้ต และปรับ duty 0-512 (50% square wave) เพื่อเสียงดังสูงสุด
+    if (code.includes("_bz_set")) {
+        headerCode += `_bz_freq = 2400
+_bz_vol = 100
+_bz_on = False
+def _bz_set():
+    global buzzer_pwm
+    f = max(20, min(20000, int(_bz_freq)))
+    d = int(max(0, min(100, _bz_vol)) * 5.12) if _bz_on else 0
+    try:
+        if 'buzzer_pwm' in globals(): buzzer_pwm.deinit()
+    except Exception:
+        pass
+    buzzer_pwm = PWM(Pin(13), freq=f, duty=d)
+`;
+    }
+
     if (code.includes("_voice_")) {
         headerCode += `import sys, uselect
 _v_cmd = ""
@@ -752,7 +753,6 @@ def _voice_say(t):
     headerCode += "\n";
     document.getElementById("pythonCodeBox").value = headerCode + code;
 }
-
 async function copyPythonCode() {
     var codeBox = document.getElementById("pythonCodeBox");
     try {
