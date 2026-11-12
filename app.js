@@ -4,22 +4,15 @@
 let workspace = null;
 let serialPort = null;
 let serialWriter = null;
-let serialReader = null;
-let serialReadLoopActive = false;
-
 let bleDevice = null;
 let bleCharacteristic = null;
-let bleTxCharacteristic = null;
 let isSimMode = false;
 
-// ตัวแปรระบบคำสั่งเสียง (Voice Recognition & TTS)
 let recognition = null;
 let isVoiceListening = false;
-let serialLineBuffer = "";
 
 const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 const UART_RX_CHARACTERISTIC_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-const UART_TX_CHARACTERISTIC_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
 // ==========================================
 // 2. Custom Field: ตารางไฟ LED Matrix 16x8
@@ -708,21 +701,20 @@ function registerKidBrightBlocks() {
 }
 
 // ==========================================
-// 5. การจัดการพรีวิวและคัดลอกโค้ด (คงความกระชับให้ส่ง BLE ได้เร็ว)
+// 5. การจัดการพรีวิวและคัดลอกโค้ด
 // ==========================================
 function updatePythonCode() {
     if (!workspace) return;
     var code = Blockly.Python.workspaceToCode(workspace);
-
+    
     var headerCode = "# Code generated for KidBright32 (MicroPython)\n" +
                      "import machine, time, network\n" +
                      "from machine import Pin, ADC, PWM, RTC\n";
-
+                     
     if (code.includes("urequests.")) {
         headerCode += "import urequests\n";
     }
 
-    // แทรกตัวช่วยคำสั่งเสียงแบบกระชับ เฉพาะเมื่อมีการลากบล็อกคำสั่งเสียงมาใช้
     if (code.includes("_voice_")) {
         headerCode += `import sys, uselect
 _v_cmd = ""
@@ -742,7 +734,7 @@ def _voice_poll():
 def _voice_has(kw, clr=True):
     global _v_cmd
     _voice_poll()
-    if str(kw).strip().lower() in _v_cmd.lower() and str(kw).strip() != "":
+    if str(kw).strip() != "" and str(kw).strip().lower() in _v_cmd.lower():
         if clr: _v_cmd = ""
         return True
     return False
@@ -753,10 +745,7 @@ def _voice_clear():
     global _v_cmd
     _v_cmd = ""
 def _voice_say(t):
-    m = "TTS:" + str(t)
-    print(m)
-    if 'ble_uart' in globals() and ble_uart and ble_uart.is_connected():
-        ble_uart.send(m + "\\n")
+    print("TTS:" + str(t))
 `;
     }
 
@@ -788,12 +777,10 @@ async function connectUSB() {
     try {
         serialPort = await navigator.serial.requestPort();
         await serialPort.open({ baudRate: 115200 });
-
+        
         const textEncoder = new TextEncoderStream();
         textEncoder.readable.pipeTo(serialPort.writable);
         serialWriter = textEncoder.writable.getWriter();
-
-        startSerialReadLoop();
 
         document.getElementById("usbBtn").style.backgroundColor = "#16a34a";
         document.getElementById("usbBtn").innerText = "🔌 เชื่อมต่อ USB แล้ว";
@@ -808,39 +795,8 @@ async function connectUSB() {
     }
 }
 
-async function startSerialReadLoop() {
-    if (!serialPort || !serialPort.readable || serialReadLoopActive) return;
-    serialReadLoopActive = true;
-    const decoder = new TextDecoder();
-
-    while (serialPort && serialPort.readable && serialReadLoopActive) {
-        serialReader = serialPort.readable.getReader();
-        try {
-            while (true) {
-                const { value, done } = await serialReader.read();
-                if (done) break;
-                if (value) {
-                    serialLineBuffer += decoder.decode(value, { stream: true });
-                    let lines = serialLineBuffer.split(/\r?\n/);
-                    serialLineBuffer = lines.pop();
-                    for (const line of lines) {
-                        handleIncomingBoardMessage(line.trim());
-                    }
-                }
-            }
-        } catch (err) {
-            console.warn("Serial read ended:", err);
-            break;
-        } finally {
-            try { serialReader.releaseLock(); } catch (e) {}
-            serialReader = null;
-        }
-    }
-    serialReadLoopActive = false;
-}
-
 // ==========================================
-// 7. ระบบเชื่อมต่อไร้สาย Bluetooth (BLE) - คืนค่าเสถียรภาพตามต้นฉบับ
+// 7. ระบบเชื่อมต่อไร้สาย Bluetooth (BLE) - เหมือนต้นฉบับ 100%
 // ==========================================
 async function connectBLE() {
     if (!("bluetooth" in navigator)) {
@@ -861,18 +817,6 @@ async function connectBLE() {
         const service = await server.getPrimaryService(UART_SERVICE_UUID);
         bleCharacteristic = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
 
-        // เปิดรับข้อมูลตอบกลับ (TTS) แบบไม่ขัดขวางการส่งหลัก
-        try {
-            bleTxCharacteristic = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
-            await bleTxCharacteristic.startNotifications();
-            bleTxCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
-                const text = new TextDecoder().decode(event.target.value).trim();
-                handleIncomingBoardMessage(text);
-            });
-        } catch (notifyErr) {
-            console.log("BLE TX Notify skipped:", notifyErr);
-        }
-
         document.getElementById("bleBtn").style.backgroundColor = "#16a34a";
         document.getElementById("bleBtn").innerText = "📶 เชื่อมต่อ BLE แล้ว";
         alert("🟢 เชื่อมต่อ Bluetooth (BLE) สำเร็จ!");
@@ -886,18 +830,7 @@ function onBLEDisconnected() {
     document.getElementById("bleBtn").style.backgroundColor = "#9333ea";
     document.getElementById("bleBtn").innerText = "📶 บลูทูธ (BLE)";
     bleCharacteristic = null;
-    bleTxCharacteristic = null;
     alert("🔴 การเชื่อมต่อ Bluetooth หลุด!");
-}
-
-// รับข้อความจากบอร์ด (เช่น TTS:ข้อความ) เพื่อพูดออกลำโพงคอมพิวเตอร์
-function handleIncomingBoardMessage(line) {
-    if (!line) return;
-    if (line.startsWith("TTS:")) {
-        const textToSpeak = line.substring(4).trim();
-        speakThai(textToSpeak);
-        showVoiceBannerMessage(`🔊 บอร์ดพูดว่า: "${textToSpeak}"`);
-    }
 }
 
 // ==========================================
@@ -942,7 +875,6 @@ async function executeCode() {
     alert("⚠️ กรุณาเชื่อมต่อ USB หรือ Bluetooth (BLE) ก่อนกดส่งโค้ด!");
 }
 
-// ส่งข้อมูลผ่าน BLE แบบแบ่งแพ็กเก็ต 20 ไบต์ (รองรับทั้งโค้ดและคำสั่งเสียงภาษาไทย)
 async function sendChunkedBLE(text) {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
@@ -976,14 +908,14 @@ function toggleMode() {
         modeBtn.style.backgroundColor = "#f59e0b";
         simContainer.style.display = "none";
     }
-
+    
     setTimeout(() => {
         Blockly.svgResize(workspace);
     }, 100);
 }
 
 // ==========================================
-// 10. ระบบคำสั่งเสียง (Web Speech API & Voice Builder)
+// 10. ระบบคำสั่งเสียง (Web Speech API)
 // ==========================================
 function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
