@@ -214,29 +214,43 @@
         </category>
 
         <!-- Category: Sensors & Switches -->
-        <category name="🔘 สวิตช์ & เซนเซอร์" colour="#ff6b00">
+        <category name="🔘 สวิตช์ &amp; เซนเซอร์" colour="#ff6b00">
             <block type="kb_read_button"></block>
             <block type="kb_read_light"></block>
         </category>
 
         <!-- Category: Buzzer & Accessories -->
-        <category name="🔊 เสียง & USB Out" colour="#ff6b00">
-            <block type="kb_buzzer"></block>
-            <block type="kb_buzzer_volume">
-                <value name="VOLUME">
-                    <block type="math_number"><field name="NUM">50</field></block>
+        <category name="🔊 เสียง &amp; USB Out" colour="#ff6b00">
+            <block type="kb_buzzer_note"></block>
+            <block type="kb_buzzer_beep">
+                <value name="FREQ">
+                    <block type="math_number"><field name="NUM">2400</field></block>
+                </value>
+                <value name="DURATION">
+                    <block type="math_number"><field name="NUM">0.2</field></block>
                 </value>
             </block>
+            <block type="kb_buzzer"></block>
             <block type="kb_buzzer_freq">
                 <value name="FREQ">
-                    <block type="math_number"><field name="NUM">1000</field></block>
+                    <block type="math_number"><field name="NUM">2400</field></block>
+                </value>
+            </block>
+            <block type="kb_buzzer_volume">
+                <value name="VOLUME">
+                    <block type="math_number"><field name="NUM">100</field></block>
                 </value>
             </block>
             <block type="kb_usb_output"></block>
+            <block type="kb_usb_pulse">
+                <value name="DURATION">
+                    <block type="math_number"><field name="NUM">1</field></block>
+                </value>
+            </block>
         </category>
 
         <!-- Category: Delay & Time -->
-        <category name="⏱️ เวลา & การหน่วง" colour="#5b80a5">
+        <category name="⏱️ เวลา &amp; การหน่วง" colour="#5b80a5">
             <block type="time_delay">
                 <value name="DELAY_TIME">
                     <block type="math_number"><field name="NUM">1</field></block>
@@ -264,7 +278,7 @@
         </category>
 
         <!-- Category: WiFi & Network -->
-        <category name="🌐 WiFi & เครือข่าย" colour="#16a085">
+        <category name="🌐 WiFi &amp; เครือข่าย" colour="#16a085">
             <block type="kb_wifi_connect">
                 <value name="SSID">
                     <block type="text"><field name="TEXT">WiFi_Name</field></block>
@@ -279,7 +293,7 @@
         </category>
 
         <!-- Category: GPIO & Servo -->
-        <category name="🔌 GPIO & เซอร์โว" colour="#a5805b">
+        <category name="🔌 GPIO &amp; เซอร์โว" colour="#a5805b">
             <block type="digital_write"></block>
             <block type="analog_read"></block>
             <block type="servo_move"></block>
