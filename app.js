@@ -7,12 +7,17 @@ let serialWriter = null;
 let bleDevice = null;
 let bleCharacteristic = null;
 let isSimMode = false;
+let isUploading = false;
 
 let recognition = null;
 let isVoiceListening = false;
 
 const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 const UART_RX_CHARACTERISTIC_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // ==========================================
 // 2. Custom Field: ตารางไฟ LED Matrix 16x8
@@ -220,8 +225,18 @@ Blockly.fieldRegistry.register('field_matrix16x8', FieldMatrix16x8);
 document.addEventListener("DOMContentLoaded", function () {
     registerKidBrightBlocks();
 
+    const toolboxEl = document.getElementById('toolbox');
+    if (toolboxEl) {
+        toolboxEl.querySelectorAll('block').forEach((b) => {
+            const t = b.getAttribute('type');
+            if (t && !Blockly.Blocks[t]) {
+                b.remove();
+            }
+        });
+    }
+
     workspace = Blockly.inject('blocklyDiv', {
-        toolbox: document.getElementById('toolbox'),
+        toolbox: toolboxEl,
         scrollbars: true,
         trashcan: true,
         zoom: {
@@ -243,6 +258,12 @@ document.addEventListener("DOMContentLoaded", function () {
     workspace.addChangeListener(updatePythonCode);
     updatePythonCode();
     initSpeechRecognition();
+
+    if ("serial" in navigator) {
+        navigator.serial.addEventListener("disconnect", () => {
+            resetUSBState();
+        });
+    }
 
     window.addEventListener('resize', function() {
         Blockly.svgResize(workspace);
@@ -401,7 +422,7 @@ function registerKidBrightBlocks() {
         return [`(int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0)`, Blockly.Python.ORDER_ATOMIC];
     };
 
-    // --- 4.3 Buzzer & USB Out Accessories (สมบูรณ์ครบทุกคำสั่ง) ---
+    // --- 4.3 Buzzer & USB Out Accessories ---
     Blockly.Blocks['kb_buzzer_note'] = {
         init: function() {
             this.appendDummyInput()
@@ -902,11 +923,21 @@ async function connectUSB() {
         alert("🟢 เชื่อมต่อบอร์ด KidBright32 ผ่าน USB เรียบร้อย!");
     } catch (err) {
         console.error("Error connecting USB:", err);
-        if (serialWriter) {
-            try { serialWriter.releaseLock(); } catch(e){}
-            serialWriter = null;
-        }
+        resetUSBState();
         alert("❌ ไม่สามารถเชื่อมต่อ USB ได้: " + err.message);
+    }
+}
+
+function resetUSBState() {
+    if (serialWriter) {
+        try { serialWriter.releaseLock(); } catch (e) {}
+        serialWriter = null;
+    }
+    serialPort = null;
+    const usbBtn = document.getElementById("usbBtn");
+    if (usbBtn) {
+        usbBtn.style.backgroundColor = "#0284c7";
+        usbBtn.innerText = "🔌 เสียบสาย USB";
     }
 }
 
@@ -942,8 +973,11 @@ async function connectBLE() {
 }
 
 function onBLEDisconnected() {
-    document.getElementById("bleBtn").style.backgroundColor = "#9333ea";
-    document.getElementById("bleBtn").innerText = "📶 บลูทูธ (BLE)";
+    const bleBtn = document.getElementById("bleBtn");
+    if (bleBtn) {
+        bleBtn.style.backgroundColor = "#9333ea";
+        bleBtn.innerText = "📶 บลูทูธ (BLE)";
+    }
     bleCharacteristic = null;
     alert("🔴 การเชื่อมต่อ Bluetooth หลุด!");
 }
@@ -952,6 +986,8 @@ function onBLEDisconnected() {
 // 8. ฟังก์ชันส่งโค้ดประมวลผล (Execute / Run)
 // ==========================================
 async function executeCode() {
+    if (isUploading) return;
+
     var code = document.getElementById("pythonCodeBox").value;
 
     if (!code || code.trim() === "") {
@@ -965,29 +1001,81 @@ async function executeCode() {
         return;
     }
 
+    const runBtn = document.getElementById("run-btn");
+    const originalText = runBtn ? runBtn.innerText : "🚀 ส่งโค้ด (Run)";
+
     if (bleCharacteristic) {
+        isUploading = true;
+        if (runBtn) {
+            runBtn.disabled = true;
+            runBtn.innerText = "⏳ กำลังส่ง (BLE)...";
+        }
         try {
-            await sendChunkedBLE(code + "\x04");
+            await runMicroPythonPasteMode(sendChunkedBLE, code);
             alert("🚀 ส่งโค้ดผ่าน Bluetooth ไร้สายสำเร็จ!");
-            return;
         } catch (err) {
             alert("❌ ส่งโค้ดผ่าน Bluetooth ล้มเหลว: " + err.message);
-            return;
+        } finally {
+            isUploading = false;
+            if (runBtn) {
+                runBtn.disabled = false;
+                runBtn.innerText = originalText;
+            }
         }
+        return;
     }
 
     if (serialWriter) {
-        try {
-            await serialWriter.write(code + "\x04");
-            alert("🚀 ส่งโค้ดไปยังบอร์ดผ่าน USB เรียบร้อย!");
-            return;
-        } catch (err) {
-            alert("❌ ส่งโค้ดผ่าน USB ล้มเหลว: " + err.message);
-            return;
+        isUploading = true;
+        if (runBtn) {
+            runBtn.disabled = true;
+            runBtn.innerText = "⏳ กำลังส่ง (USB)...";
         }
+        try {
+            await runMicroPythonPasteMode(sendChunkedUSB, code);
+            alert("🚀 ส่งโค้ดไปยังบอร์ดผ่าน USB เรียบร้อย!");
+        } catch (err) {
+            resetUSBState();
+            alert("❌ ส่งโค้ดผ่าน USB ล้มเหลว (กรุณาเชื่อมต่อ USB ใหม่): " + err.message);
+        } finally {
+            isUploading = false;
+            if (runBtn) {
+                runBtn.disabled = false;
+                runBtn.innerText = originalText;
+            }
+        }
+        return;
     }
 
     alert("⚠️ กรุณาเชื่อมต่อ USB หรือ Bluetooth (BLE) ก่อนกดส่งโค้ด!");
+}
+
+async function runMicroPythonPasteMode(sendFn, rawCode) {
+    const cleanCode = rawCode.replace(/\r\n/g, "\n").trim() + "\n";
+
+    // 1. ส่ง Ctrl+C สองครั้งเพื่อหยุดโปรแกรมเก่าที่กำลังทำงานหรือค้างอยู่
+    await sendFn("\x03\x03");
+    await sleep(120);
+
+    // 2. ส่ง Ctrl+E เพื่อเข้า MicroPython Paste Mode (กันปัญหา Auto-indent และ Soft Reboot)
+    await sendFn("\x05");
+    await sleep(80);
+
+    // 3. ส่งโค้ดทั้งหมดแบบแบ่งก้อน (กันบัฟเฟอร์ ESP32 ล้น)
+    await sendFn(cleanCode);
+    await sleep(50);
+
+    // 4. ส่ง Ctrl+D เพื่อสั่งประมวลผลโค้ดทันที
+    await sendFn("\x04");
+}
+
+async function sendChunkedUSB(text) {
+    const chunkSize = 64;
+    for (let i = 0; i < text.length; i += chunkSize) {
+        const chunk = text.slice(i, i + chunkSize);
+        await serialWriter.write(chunk);
+        await sleep(15);
+    }
 }
 
 async function sendChunkedBLE(text) {
@@ -1002,7 +1090,7 @@ async function sendChunkedBLE(text) {
         } else {
             await bleCharacteristic.writeValue(chunk);
         }
-        await new Promise(r => setTimeout(r, 30));
+        await sleep(30);
     }
 }
 
