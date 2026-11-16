@@ -34,52 +34,26 @@
         .teacher-name { font-size: clamp(0.75rem, 1.2vw, 0.95rem); color: #555555; margin-top: 2px; }
         .app-title { font-size: clamp(0.7rem, 1.1vw, 0.88rem); font-weight: bold; color: #ff6b00; margin-top: 1px; }
 
-        .controls { display: flex; gap: clamp(4px, 0.8vw, 8px); align-items: center; flex-wrap: wrap; }
+        .controls { display: flex; gap: clamp(4px, 1vw, 8px); align-items: center; flex-wrap: wrap; }
         .btn { 
-            padding: clamp(6px, 1vh, 10px) clamp(10px, 1.1vw, 14px); 
+            padding: clamp(6px, 1vh, 10px) clamp(10px, 1.2vw, 16px); 
             border: none; border-radius: 6px; font-weight: bold; 
-            font-size: clamp(0.75rem, 1.05vw, 0.88rem); cursor: pointer; 
+            font-size: clamp(0.75rem, 1.1vw, 0.9rem); cursor: pointer; 
             transition: all 0.2s ease; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .btn:active { transform: scale(0.96); }
         .btn-usb { background-color: #0284c7; color: white; }
         .btn-ble { background-color: #9333ea; color: white; }
-        .btn-voice { background-color: #e11d48; color: white; }
-        .btn-voice.listening { background-color: #16a34a; animation: pulseVoice 1.4s infinite; }
         .btn-toggle { background-color: #f59e0b; color: white; }
         .btn-run { background-color: #28a745; color: white; }
         .btn-run:hover { background-color: #218838; }
-
-        .voice-select {
-            padding: 7px 8px; border-radius: 6px; border: 1px solid #cbd5e1;
-            font-size: 0.8rem; background: #f8fafc; color: #1e293b; font-weight: 600;
-            cursor: pointer; outline: none;
-        }
-
-        @keyframes pulseVoice {
-            0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.6); }
-            70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
-        }
-
-        .voice-banner {
-            display: none; background: #0f172a; color: #f8fafc;
-            padding: 6px 16px; font-size: 0.85rem;
-            align-items: center; justify-content: space-between;
-            border-bottom: 1px solid #334155; gap: 10px;
-        }
-        .voice-banner.active { display: flex; }
-        .voice-badge {
-            background: #e11d48; color: white; padding: 2px 8px;
-            border-radius: 999px; font-size: 0.75rem; font-weight: bold;
-        }
-        #voiceTranscriptText { color: #38bdf8; font-weight: bold; margin-left: 6px; }
 
         .main-container { 
             display: flex; flex: 1; width: 100%; height: 0; min-height: 0; position: relative; 
         }
         #blocklyDiv { flex: 1; height: 100%; touch-action: none; background-color: #ffffff; min-width: 0; }
 
+        /* Side Panel Styling */
         .side-panel {
             width: 380px; max-width: 45%; height: 100%; background: #1e1e1e;
             border-left: 2px solid #cbd5e1; display: flex; flex-direction: column;
@@ -137,24 +111,10 @@
         <div class="controls">
             <button class="btn btn-usb" id="usbBtn" onclick="connectUSB()">🔌 เสียบสาย USB</button>
             <button class="btn btn-ble" id="bleBtn" onclick="connectBLE()">📶 บลูทูธ (BLE)</button>
-            <button class="btn btn-voice" id="voiceBtn" onclick="toggleVoiceRecognition()">🎤 คำสั่งเสียง: ปิด</button>
-            <select id="voiceModeSelect" class="voice-select" title="เลือกโหมดการทำงานของคำสั่งเสียง">
-                <option value="bridge">โหมดเสียง: ส่งเข้าบอร์ด</option>
-                <option value="builder">โหมดเสียง: สร้างบล็อก/คุมเว็บ</option>
-            </select>
             <button class="btn btn-toggle" id="modeBtn" onclick="toggleMode()">🔄 โหมด: บอร์ดจริง</button>
             <button class="btn btn-run" id="run-btn" onclick="executeCode()">🚀 ส่งโค้ด (Run)</button>
         </div>
     </header>
-
-    <!-- แถบสถานะคำสั่งเสียง -->
-    <div id="voiceStatusBar" class="voice-banner">
-        <div>
-            <span class="voice-badge">🎙️ ระบบเสียง</span>
-            <span id="voiceTranscriptText">พร้อมรับคำสั่งเสียงภาษาไทย...</span>
-        </div>
-        <button class="btn-copy" style="background:#475569;" onclick="testVoiceCommand()">🧪 ทดสอบส่งคำสั่งเสียง</button>
-    </div>
 
     <!-- Main Workspace Layout -->
     <div class="main-container">
@@ -183,23 +143,6 @@
 
     <!-- Blockly Toolbox Definition -->
     <xml id="toolbox" style="display: none">
-        <!-- Category: Voice Command System -->
-        <category name="🎤 คำสั่งเสียง" colour="#e11d48">
-            <block type="kb_voice_listen"></block>
-            <block type="kb_voice_if_heard">
-                <value name="KEYWORD">
-                    <block type="text"><field name="TEXT">เปิดไฟ</field></block>
-                </value>
-            </block>
-            <block type="kb_voice_get_text"></block>
-            <block type="kb_voice_clear"></block>
-            <block type="kb_voice_speak">
-                <value name="TEXT">
-                    <block type="text"><field name="TEXT">รับทราบคำสั่งครับ</field></block>
-                </value>
-            </block>
-        </category>
-
         <!-- Category: LED Matrix -->
         <category name="📺 หน้าจอ LED" colour="#ff6b00">
             <block type="kb_matrix_text">
@@ -214,43 +157,29 @@
         </category>
 
         <!-- Category: Sensors & Switches -->
-        <category name="🔘 สวิตช์ &amp; เซนเซอร์" colour="#ff6b00">
+        <category name="🔘 สวิตช์ & เซนเซอร์" colour="#ff6b00">
             <block type="kb_read_button"></block>
             <block type="kb_read_light"></block>
         </category>
 
         <!-- Category: Buzzer & Accessories -->
-        <category name="🔊 เสียง &amp; USB Out" colour="#ff6b00">
-            <block type="kb_buzzer_note"></block>
-            <block type="kb_buzzer_beep">
-                <value name="FREQ">
-                    <block type="math_number"><field name="NUM">2400</field></block>
-                </value>
-                <value name="DURATION">
-                    <block type="math_number"><field name="NUM">0.2</field></block>
-                </value>
-            </block>
+        <category name="🔊 เสียง & USB Out" colour="#ff6b00">
             <block type="kb_buzzer"></block>
-            <block type="kb_buzzer_freq">
-                <value name="FREQ">
-                    <block type="math_number"><field name="NUM">2400</field></block>
-                </value>
-            </block>
             <block type="kb_buzzer_volume">
                 <value name="VOLUME">
-                    <block type="math_number"><field name="NUM">100</field></block>
+                    <block type="math_number"><field name="NUM">50</field></block>
+                </value>
+            </block>
+            <block type="kb_buzzer_freq">
+                <value name="FREQ">
+                    <block type="math_number"><field name="NUM">1000</field></block>
                 </value>
             </block>
             <block type="kb_usb_output"></block>
-            <block type="kb_usb_pulse">
-                <value name="DURATION">
-                    <block type="math_number"><field name="NUM">1</field></block>
-                </value>
-            </block>
         </category>
 
         <!-- Category: Delay & Time -->
-        <category name="⏱️ เวลา &amp; การหน่วง" colour="#5b80a5">
+        <category name="⏱️ เวลา & การหน่วง" colour="#5b80a5">
             <block type="time_delay">
                 <value name="DELAY_TIME">
                     <block type="math_number"><field name="NUM">1</field></block>
@@ -278,7 +207,7 @@
         </category>
 
         <!-- Category: WiFi & Network -->
-        <category name="🌐 WiFi &amp; เครือข่าย" colour="#16a085">
+        <category name="🌐 WiFi & เครือข่าย" colour="#16a085">
             <block type="kb_wifi_connect">
                 <value name="SSID">
                     <block type="text"><field name="TEXT">WiFi_Name</field></block>
@@ -293,7 +222,7 @@
         </category>
 
         <!-- Category: GPIO & Servo -->
-        <category name="🔌 GPIO &amp; เซอร์โว" colour="#a5805b">
+        <category name="🔌 GPIO & เซอร์โว" colour="#a5805b">
             <block type="digital_write"></block>
             <block type="analog_read"></block>
             <block type="servo_move"></block>
@@ -353,7 +282,7 @@
     </xml>
 
     <!-- App Logic -->
-    <script src="app.js?v=4"></script>
+    <script src="app.js"></script>
 
 </body>
 </html>
