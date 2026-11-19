@@ -162,8 +162,19 @@
             <block type="kb_read_light"></block>
         </category>
 
-        <!-- Category: Buzzer & Accessories -->
+        <!-- Category: Buzzer & Accessories (ปรับปรุงใหม่: เพิ่มโน้ตเพลงและจังหวะ) -->
         <category name="🔊 เสียง & USB Out" colour="#ff6b00">
+            <block type="kb_buzzer_note"></block>
+            <block type="kb_buzzer_melody">
+                <value name="MELODY">
+                    <block type="text"><field name="TEXT">C4:1, D4:1, E4:1, C4:1</field></block>
+                </value>
+            </block>
+            <block type="kb_buzzer_tempo">
+                <value name="BPM">
+                    <block type="math_number"><field name="NUM">120</field></block>
+                </value>
+            </block>
             <block type="kb_buzzer"></block>
             <block type="kb_buzzer_volume">
                 <value name="VOLUME">
