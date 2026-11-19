@@ -322,7 +322,91 @@ function registerKidBrightBlocks() {
         return [`(int((4095 - adc_light.read()) / 4095 * 100) if adc_light else 0)`, Blockly.Python.ORDER_ATOMIC];
     };
 
-    // --- 4.3 Buzzer & Accessories ---
+    // --- 4.3 Buzzer & Accessories (อัปเดตตัวโน้ต จังหวะ และแก้ไข Buzzer/USB Out) ---
+    Blockly.Blocks['kb_buzzer_note'] = {
+        init: function() {
+            this.appendDummyInput()
+                .appendField("🎵 เล่นโน้ตเพลง")
+                .appendField(new Blockly.FieldDropdown([
+                    ["C4 (โด กลาง)", "262"],
+                    ["C#4 / Db4", "277"],
+                    ["D4 (เร)", "294"],
+                    ["D#4 / Eb4", "311"],
+                    ["E4 (มี)", "330"],
+                    ["F4 (ฟา)", "349"],
+                    ["F#4 / Gb4", "370"],
+                    ["G4 (ซอล)", "392"],
+                    ["G#4 / Ab4", "415"],
+                    ["A4 (ลา)", "440"],
+                    ["A#4 / Bb4", "466"],
+                    ["B4 (ที)", "494"],
+                    ["C5 (โด สูง)", "523"],
+                    ["C#5 / Db5", "554"],
+                    ["D5 (เร สูง)", "587"],
+                    ["D#5 / Eb5", "622"],
+                    ["E5 (มี สูง)", "659"],
+                    ["F5 (ฟา สูง)", "698"],
+                    ["F#5 / Gb5", "740"],
+                    ["G5 (ซอล สูง)", "784"],
+                    ["G#5 / Ab5", "831"],
+                    ["A5 (ลา สูง)", "880"],
+                    ["A#5 / Bb5", "932"],
+                    ["B5 (ที สูง)", "988"],
+                    ["C6 (โด สูงมาก)", "1047"],
+                    ["เงียบ (Rest)", "0"]
+                ]), "NOTE")
+                .appendField("จังหวะ")
+                .appendField(new Blockly.FieldDropdown([
+                    ["1 จังหวะ (1 Beat)", "1"],
+                    ["1/2 จังหวะ (1/2 Beat)", "0.5"],
+                    ["1/4 จังหวะ (1/4 Beat)", "0.25"],
+                    ["1/8 จังหวะ (1/8 Beat)", "0.125"],
+                    ["3/4 จังหวะ (3/4 Beat)", "0.75"],
+                    ["1 1/2 จังหวะ (1.5 Beats)", "1.5"],
+                    ["2 จังหวะ (2 Beats)", "2"],
+                    ["4 จังหวะ (4 Beats)", "4"]
+                ]), "BEAT");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer_note'] = function(block) {
+        var freq = block.getFieldValue('NOTE');
+        var beat = block.getFieldValue('BEAT');
+        return `play_note(${freq}, ${beat})\n`;
+    };
+
+    Blockly.Blocks['kb_buzzer_melody'] = {
+        init: function() {
+            this.appendValueInput("MELODY")
+                .setCheck("String")
+                .appendField("🎶 เล่นทำนองเพลง (โน้ต:จังหวะ)");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer_melody'] = function(block) {
+        var melody = Blockly.Python.valueToCode(block, 'MELODY', Blockly.Python.ORDER_ATOMIC) || "'C4:1'";
+        return `play_melody(${melody})\n`;
+    };
+
+    Blockly.Blocks['kb_buzzer_tempo'] = {
+        init: function() {
+            this.appendValueInput("BPM")
+                .setCheck("Number")
+                .appendField("⏱️ ตั้งความเร็วเพลง (Tempo BPM)");
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour("#ff6b00");
+        }
+    };
+    Blockly.Python['kb_buzzer_tempo'] = function(block) {
+        var bpm = Blockly.Python.valueToCode(block, 'BPM', Blockly.Python.ORDER_ATOMIC) || "120";
+        return `bpm = max(20, min(300, int(${bpm})))\n`;
+    };
+
     Blockly.Blocks['kb_buzzer'] = {
         init: function() {
             this.appendDummyInput()
@@ -335,8 +419,11 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_buzzer'] = function(block) {
         var state = block.getFieldValue('STATE');
-        var dutyVal = (state === "1") ? "512" : "0";
-        return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(${dutyVal})\n`;
+        if (state === "1") {
+            return `buzzer_pwm.duty(buzzer_vol)\n`;
+        } else {
+            return `buzzer_pwm.duty(0)\n`;
+        }
     };
 
     Blockly.Blocks['kb_buzzer_volume'] = {
@@ -351,7 +438,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_buzzer_volume'] = function(block) {
         var volume = Blockly.Python.valueToCode(block, 'VOLUME', Blockly.Python.ORDER_ATOMIC) || "50";
-        return `if 'buzzer_pwm' in globals(): buzzer_pwm.duty(int(max(0, min(100, ${volume})) * 10.23))\n`;
+        return `buzzer_vol = int(max(0, min(100, ${volume})) * 10.23)\nif buzzer_pwm.duty() > 0: buzzer_pwm.duty(buzzer_vol)\n`;
     };
 
     Blockly.Blocks['kb_buzzer_freq'] = {
@@ -366,7 +453,7 @@ function registerKidBrightBlocks() {
     };
     Blockly.Python['kb_buzzer_freq'] = function(block) {
         var freq = Blockly.Python.valueToCode(block, 'FREQ', Blockly.Python.ORDER_ATOMIC) || "1000";
-        return `if 'buzzer_pwm' in globals(): buzzer_pwm.freq(int(${freq}))\n`;
+        return `buzzer_pwm.freq(max(1, int(${freq})))\n`;
     };
 
     Blockly.Blocks['kb_usb_output'] = {
@@ -635,6 +722,54 @@ function updatePythonCode() {
                      
     if (code.includes("urequests.")) {
         headerCode += "import urequests\n";
+    }
+
+    // กำหนดค่าเริ่มต้นให้ Buzzer (Pin 13) และ USB Out (Pin 25) ของ KidBright32
+    if (code.includes("buzzer_pwm") || code.includes("play_note(") || code.includes("play_melody(") || code.includes("buzzer_vol") || code.includes("bpm =")) {
+        headerCode += "if 'buzzer_pwm' not in globals():\n" +
+                      "    buzzer_pwm = PWM(Pin(13), freq=1000, duty=0)\n" +
+                      "buzzer_vol = 512\n" +
+                      "bpm = 120\n";
+    }
+
+    if (code.includes("usb_out.")) {
+        headerCode += "if 'usb_out' not in globals():\n" +
+                      "    usb_out = Pin(25, Pin.OUT)\n";
+    }
+
+    // เพิ่มฟังก์ชันเล่นโน้ตเพลงและจังหวะอัตโนมัติเมื่อมีการเรียกใช้
+    if (code.includes("play_note(") || code.includes("play_melody(")) {
+        headerCode += "\ndef play_note(freq, beats):\n" +
+                      "    dur = beats * (60.0 / bpm)\n" +
+                      "    if freq > 0:\n" +
+                      "        buzzer_pwm.freq(int(freq))\n" +
+                      "        buzzer_pwm.duty(buzzer_vol)\n" +
+                      "        time.sleep(dur * 0.9)\n" +
+                      "        buzzer_pwm.duty(0)\n" +
+                      "        time.sleep(dur * 0.1)\n" +
+                      "    else:\n" +
+                      "        buzzer_pwm.duty(0)\n" +
+                      "        time.sleep(dur)\n";
+    }
+
+    if (code.includes("play_melody(")) {
+        headerCode += "\nNOTE_FREQS = {\n" +
+                      "    'C4': 262, 'C#4': 277, 'DB4': 277, 'D4': 294, 'D#4': 311, 'EB4': 311,\n" +
+                      "    'E4': 330, 'F4': 349, 'F#4': 370, 'GB4': 370, 'G4': 392, 'G#4': 415,\n" +
+                      "    'AB4': 415, 'A4': 440, 'A#4': 466, 'BB4': 466, 'B4': 494,\n" +
+                      "    'C5': 523, 'C#5': 554, 'DB5': 554, 'D5': 587, 'D#5': 622, 'EB5': 622,\n" +
+                      "    'E5': 659, 'F5': 698, 'F#5': 740, 'GB5': 740, 'G5': 784, 'G#5': 831,\n" +
+                      "    'AB5': 831, 'A5': 880, 'A#5': 932, 'BB5': 932, 'B5': 988, 'C6': 1047,\n" +
+                      "    'REST': 0, 'R': 0, 'P': 0\n" +
+                      "}\n\n" +
+                      "def play_melody(melody_str):\n" +
+                      "    for item in melody_str.split(','):\n" +
+                      "        item = item.strip()\n" +
+                      "        if not item: continue\n" +
+                      "        parts = item.split(':')\n" +
+                      "        note = parts[0].strip().upper()\n" +
+                      "        beats = float(parts[1].strip()) if len(parts) > 1 else 1.0\n" +
+                      "        play_note(NOTE_FREQS.get(note, 0), beats)\n";
     }
 
     headerCode += "\n";
